@@ -1,7 +1,7 @@
 from pathlib import Path
 from datetime import datetime
 
-class VahanConfig:
+class Config:
     """
     MAXED 2025 Hardened VAHAN Configuration
     ---------------------------------------
