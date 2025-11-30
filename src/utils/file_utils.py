@@ -236,6 +236,7 @@ class FileManager:
     encoding: str = "utf-8",
     safe_mode: bool = True,
 ) -> pd.DataFrame:
+    
     """Fully validated and safe DataFrame loader with auto-detection.
 
     Args:
