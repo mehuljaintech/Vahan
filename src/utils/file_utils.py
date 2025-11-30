@@ -236,7 +236,6 @@ class FileManager:
     encoding: str = "utf-8",
     safe_mode: bool = True,
 ) -> pd.DataFrame:
-    
     """Fully validated and safe DataFrame loader with auto-detection.
 
     Args:
@@ -249,8 +248,8 @@ class FileManager:
         pd.DataFrame
 
     Raises:
-        FileNotFoundError
-        ExportError
+        FileNotFoundError: File does not exist.
+        ExportError: Unsupported format or failure to parse file.
     """
     try:
         filepath = Path(filepath)
