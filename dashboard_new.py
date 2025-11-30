@@ -567,220 +567,248 @@ class ModularVahanDashboard:
         self.logger.info(f"✅ Filters applied: {filters}. Resulting rows: {len(filtered_data)}")
         return filtered_data
     
-    def create_kpi_cards(self, data: pd.DataFrame):
-        """Display fully maxed investor-focused KPI dashboard with analytics and trends."""
-        st.subheader("📊 Key Performance Indicators & Insights")
+    def create_kpi_cards(data: pd.DataFrame, title="🚀 Ultra Maxed AI Vehicle Dashboard"):
+        st.title(title)
     
         # ----------------------------
-        # Prepare Data
+        # Auto-detect Columns
         # ----------------------------
-        total_registrations = 0
-        states_count = 0
-        categories_count = 0
-        growth_text = "N/A"
-        growth_color = ""
-        period_text = "Unknown"
-        help_text = "Data period information not available"
-        
-        # Total registrations
-        if 'TOTAL' in data.columns:
-            try:
-                total_registrations = int(data['TOTAL'].sum())
-                formatted_total = f"{total_registrations:,}"
-            except Exception:
-                formatted_total = "Processing..."
-        else:
-            formatted_total = "0"
-    
-        # States count
-        for col_name in ['State', 'Filter_State']:
-            if col_name in data.columns:
-                states_count = data[col_name].nunique()
-                break
-    
-        # Categories count
-        for col_name in ['Vehicle_Category', 'Vehicle Class']:
-            if col_name in data.columns:
-                categories_count = data[col_name].nunique()
-                break
-    
-        # Data period
-        year_col = None
-        for col_name in ['Year', 'Filter_Year']:
-            if col_name in data.columns:
-                year_col = col_name
-                break
-        if year_col:
-            years_span = data[year_col].nunique()
-            min_year, max_year = data[year_col].min(), data[year_col].max()
-            period_text = f"{years_span} years ({min_year}-{max_year})" if years_span > 1 else f"{min_year}"
-            help_text = f"Data spans from {min_year} to {max_year}"
-    
-        # Average YoY growth
-        growth_rate = None
-        if year_col and 'TOTAL' in data.columns and data[year_col].nunique() > 1:
-            try:
-                yearly_totals = data.groupby(year_col)['TOTAL'].sum().sort_index()
-                latest_year, previous_year = yearly_totals.index[-1], yearly_totals.index[-2]
-                growth_rate = ((yearly_totals[latest_year] - yearly_totals[previous_year])
-                               / yearly_totals[previous_year]) * 100
-                growth_text = f"{growth_rate:.1f}%"
-                growth_color = "growth-positive" if growth_rate >= 0 else "growth-negative"
-            except Exception:
-                growth_text = "N/A"
+        states_col = next((c for c in ['State', 'Filter_State'] if c in data.columns), None)
+        categories_col = next((c for c in ['Vehicle_Category', 'Vehicle Class'] if c in data.columns), None)
+        year_col = next((c for c in ['Year', 'Filter_Year'] if c in data.columns), None)
+        total_col = 'TOTAL' if 'TOTAL' in data.columns else None
     
         # ----------------------------
-        # KPI Cards
+        # Core Metrics
+        # ----------------------------
+        total_registrations = int(data[total_col].sum()) if total_col else 0
+        formatted_total = f"{total_registrations:,}"
+        states_count = data[states_col].nunique() if states_col else 0
+        categories_count = data[categories_col].nunique() if categories_col else 0
+        period_text = f"{data[year_col].min()}-{data[year_col].max()}" if year_col else "Unknown"
+    
+        # ----------------------------
+        # Growth, CAGR, Forecast, Anomalies
+        # ----------------------------
+        growth_text, growth_color, cagr_text, forecast_text = "N/A", "", "N/A", "N/A"
+        anomaly_alerts = []
+    
+        if year_col and total_col and data[year_col].nunique() > 1:
+            yearly_totals = data.groupby(year_col)[total_col].sum().sort_index()
+            growth_rate = ((yearly_totals.iloc[-1] - yearly_totals.iloc[-2]) / yearly_totals.iloc[-2]) * 100
+            growth_text = f"{growth_rate:.1f}%"
+            growth_color = "growth-positive" if growth_rate >= 0 else "growth-negative"
+    
+            # CAGR
+            years_diff = yearly_totals.index[-1] - yearly_totals.index[0]
+            if years_diff > 0 and yearly_totals.iloc[0] > 0:
+                cagr = ((yearly_totals.iloc[-1] / yearly_totals.iloc[0]) ** (1/years_diff) - 1) * 100
+                cagr_text = f"{cagr:.1f}%"
+    
+            # Forecast next 3 years (linear + polynomial)
+            X = np.array(yearly_totals.index).reshape(-1,1)
+            y = yearly_totals.values
+            lin_model = LinearRegression().fit(X, y)
+            poly = PolynomialFeatures(degree=2)
+            X_poly = poly.fit_transform(X)
+            poly_model = LinearRegression().fit(X_poly, y)
+    
+            next_years = np.arange(yearly_totals.index.max()+1, yearly_totals.index.max()+4).reshape(-1,1)
+            linear_forecast = lin_model.predict(next_years)
+            poly_forecast = poly_model.predict(poly.transform(next_years))
+            forecast_text = ", ".join([f"{int(f):,}" for f in linear_forecast])
+            forecast_poly_text = ", ".join([f"{int(f):,}" for f in poly_forecast])
+    
+            # Detect anomalies >20% drop
+            drops = yearly_totals.pct_change() < -0.2
+            if drops.any():
+                anomaly_alerts = yearly_totals[drops].index.tolist()
+    
+        # ----------------------------
+        # KPI Cards Layout
         # ----------------------------
         col1, col2, col3, col4 = st.columns(4)
     
+        # Total Registrations & Trend
         with col1:
-            st.metric("Total Registrations", formatted_total, help="Total vehicle registrations in the dataset")
-            if 'Year' in data.columns and 'TOTAL' in data.columns:
-                st.line_chart(data.groupby('Year')['TOTAL'].sum().sort_index(), height=100)
+            st.metric("Total Registrations", formatted_total)
+            if year_col and total_col:
+                st.line_chart(yearly_totals, height=120, use_container_width=True)
     
+        # States Covered & Top States
         with col2:
-            st.metric("States Covered", states_count, help="Number of unique states in the dataset")
-            if 'State' in data.columns:
-                top_states = data['State'].value_counts().head(5)
-                st.bar_chart(top_states, height=100)
+            st.metric("States Covered", states_count)
+            if states_col:
+                top_states = data[states_col].value_counts().head(5)
+                st.bar_chart(top_states, height=120, use_container_width=True)
     
+        # Growth & Forecast
         with col3:
             st.markdown(f'<div class="{growth_color}"><strong>Avg YoY Growth:</strong> {growth_text}</div>', unsafe_allow_html=True)
-            if growth_rate is not None:
-                st.line_chart(data.groupby(year_col)['TOTAL'].sum().pct_change().fillna(0) * 100, height=100)
+            st.markdown(f'<div style="color:#17a2b8; font-weight:bold;">CAGR: {cagr_text}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="color:#6f42c1; font-weight:bold;">Next 3 Years Forecast (Linear): {forecast_text}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="color:#e83e8c; font-weight:bold;">Next 3 Years Forecast (Poly): {forecast_poly_text}</div>', unsafe_allow_html=True)
+            if year_col and total_col:
+                st.line_chart(yearly_totals.pct_change().fillna(0) * 100, height=120, use_container_width=True)
     
+        # Categories & Top Categories
         with col4:
-            st.metric("Data Period", period_text, help=help_text)
-            if 'Vehicle_Category' in data.columns:
-                top_categories = data['Vehicle_Category'].value_counts().head(5)
-                st.bar_chart(top_categories, height=100)
-            elif 'Vehicle Class' in data.columns:
-                top_categories = data['Vehicle Class'].value_counts().head(5)
-                st.bar_chart(top_categories, height=100)
+            st.metric("Data Period", period_text)
+            if categories_col:
+                top_categories = data[categories_col].value_counts().head(5)
+                st.bar_chart(top_categories, height=120, use_container_width=True)
     
         # ----------------------------
-        # Custom CSS for growth coloring
+        # CSS Styling
         # ----------------------------
         st.markdown("""
         <style>
-            .growth-positive { color: #28a745; font-weight: bold; font-size:1.1rem; }
-            .growth-negative { color: #dc3545; font-weight: bold; font-size:1.1rem; }
+            .growth-positive { color: #28a745; font-weight: bold; font-size:1.2rem; }
+            .growth-negative { color: #dc3545; font-weight: bold; font-size:1.2rem; }
         </style>
         """, unsafe_allow_html=True)
     
         # ----------------------------
-        # Optional summary stats
+        # Ultra Insights Section
         # ----------------------------
-        with st.expander("📋 Summary Details"):
-            st.write(data.describe(include='all').T)
-            if 'TOTAL' in data.columns:
-                st.info(f"Total vehicle registrations in dataset: {total_registrations:,}")
-            if 'State' in data.columns:
-                st.info(f"Number of unique states: {states_count}")
-            if 'Vehicle_Category' in data.columns or 'Vehicle Class' in data.columns:
-                st.info(f"Number of vehicle categories: {categories_count}")
+        with st.expander("📋 Ultra Maxed AI Insights"):
+            st.subheader("Descriptive Statistics")
+            st.dataframe(data.describe(include='all').T.style.background_gradient(cmap='Blues'))
     
-    def create_growth_charts(self, data: pd.DataFrame):
-        """📈 Fully maxed Growth Charts and Investor Insights."""
-        st.header("📈 Growth Analysis & Trends")
+            # Top contributors
+            if states_col:
+                st.write("### Top 10 States by Registrations")
+                st.bar_chart(data.groupby(states_col)[total_col].sum().sort_values(ascending=False).head(10))
+            if categories_col:
+                st.write("### Top 10 Vehicle Categories")
+                st.bar_chart(data.groupby(categories_col)[total_col].sum().sort_values(ascending=False).head(10))
+    
+            # Contribution %
+            if total_col and categories_col:
+                contribution = data.groupby(categories_col)[total_col].sum() / total_registrations * 100
+                st.write("### Category Contribution (%)")
+                st.bar_chart(contribution.sort_values(ascending=False))
+    
+            # Alerts
+            if anomaly_alerts:
+                st.warning(f"⚠️ Significant drops (>20%) detected in years: {anomaly_alerts}")
+            else:
+                st.success("📈 No major anomalies detected.")
+    
+            # Highlight top gainers/losers
+            if year_col and total_col:
+                yearly_diff = yearly_totals.diff().fillna(0)
+                top_gainers = yearly_diff.nlargest(3)
+                top_losers = yearly_diff.nsmallest(3)
+                st.write(f"### Top 3 Growth Years: {top_gainers.to_dict()}")
+                st.write(f"### Top 3 Decline Years: {top_losers.to_dict()}")
+    
+            # Quick Stats
+            st.info(f"💡 Total Registrations: {formatted_total}")
+            if states_col: st.info(f"💡 Unique States: {states_count}")
+            if categories_col: st.info(f"💡 Vehicle Categories: {categories_count}")
+            if year_col: st.info(f"💡 Data Period: {period_text}")
+            if year_col and total_col: st.info(f"💡 CAGR: {cagr_text}")
+            if year_col and total_col: st.info(f"💡 Forecast Next 3 Years: {forecast_text}")
+    
+    def create_maxed_growth_charts(data: pd.DataFrame, title="📈 Fully Maxed Growth Analysis"):
+        st.header(title)
     
         # ----------------------------
-        # Yearly Trend and CAGR
+        # Detect columns dynamically
         # ----------------------------
-        if 'Year' in data.columns and 'TOTAL' in data.columns and not data.empty:
-            try:
-                # CAGR & Volatility
-                cagr = self.growth_analyzer.calculate_compound_growth_rate(data)
-                volatility = self.growth_analyzer.analyze_growth_volatility(data)
-                
-                col1, col2 = st.columns([2, 1])
+        total_col = 'TOTAL' if 'TOTAL' in data.columns else None
+        year_col = next((c for c in ['Year', 'Filter_Year'] if c in data.columns), None)
+        vehicle_col = next((c for c in ['Vehicle_Category', 'Vehicle Class', 'Vehicle_Type'] if c in data.columns), None)
     
-                with col1:
-                    yearly_data = data.groupby('Year')['TOTAL'].sum().reset_index()
-                    fig = px.line(
-                        yearly_data, x='Year', y='TOTAL', markers=True,
-                        title="Total Registrations Trend"
-                    )
-                    fig.update_layout(
-                        height=400,
-                        xaxis_title="Year",
-                        yaxis_title="Total Registrations",
-                        template="plotly_white"
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
+        if not total_col or not year_col or data.empty:
+            st.warning("⚠️ Insufficient data to create growth charts.")
+            return
     
-                with col2:
-                    st.metric("CAGR", f"{cagr:.2f}%", help="Compound Annual Growth Rate")
-                    if volatility and 'stability_score' in volatility:
-                        st.metric("Stability", volatility['stability_score'], help="Stability of growth over years")
+        # ----------------------------
+        # Yearly Growth Trend & CAGR
+        # ----------------------------
+        try:
+            yearly_data = data.groupby(year_col)[total_col].sum().reset_index()
+            years = yearly_data[year_col].values.reshape(-1,1)
+            totals = yearly_data[total_col].values
     
-            except Exception as e:
-                st.warning(f"⚠️ Error creating yearly growth chart: {e}")
-                st.info(f"📊 Available columns: {', '.join(data.columns.tolist())}")
+            # CAGR calculation
+            n_years = years[-1][0] - years[0][0]
+            cagr = ((totals[-1] / totals[0]) ** (1/n_years) - 1) * 100 if n_years > 0 else 0
+    
+            # Volatility / Stability
+            yoy_change = yearly_data[total_col].pct_change().fillna(0) * 100
+            stability_score = 100 - np.std(yoy_change)  # higher is more stable
+    
+            # Linear Forecast for next 2 years
+            lr = LinearRegression().fit(years, totals)
+            future_years = np.array([years[-1][0]+1, years[-1][0]+2]).reshape(-1,1)
+            forecast = lr.predict(future_years)
+    
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                fig = px.line(yearly_data, x=year_col, y=total_col, markers=True,
+                              title="Total Registrations Trend")
+                fig.add_scatter(x=future_years.flatten(), y=forecast, mode='lines+markers', name='Forecast', line=dict(dash='dash', color='purple'))
+                fig.update_layout(height=400, xaxis_title="Year", yaxis_title="Total Registrations", template="plotly_white")
+                st.plotly_chart(fig, use_container_width=True)
+    
+            with col2:
+                st.metric("CAGR", f"{cagr:.2f}%", help="Compound Annual Growth Rate")
+                st.metric("Stability", f"{stability_score:.2f}", help="Higher score = more stable growth")
+                st.metric("Next 2 Years Forecast", ", ".join([f"{int(f):,}" for f in forecast]))
+    
+        except Exception as e:
+            st.warning(f"⚠️ Error creating yearly growth chart: {e}")
     
         # ----------------------------
         # Vehicle Category-wise Growth
         # ----------------------------
-        st.subheader("📊 Growth by Vehicle Category")
-        
-        vehicle_col = None
-        year_col = None
-        for col in ['Vehicle_Category', 'Vehicle Class', 'Vehicle_Type']:
-            if col in data.columns:
-                vehicle_col = col
-                break
-        for col in ['Year', 'Filter_Year']:
-            if col in data.columns:
-                year_col = col
-                break
-    
         if vehicle_col and year_col and data[year_col].nunique() > 1:
             try:
-                cat_yearly = data.groupby([year_col, vehicle_col])['TOTAL'].sum().reset_index()
-                if not cat_yearly.empty:
-                    fig = px.line(
-                        cat_yearly, x=year_col, y='TOTAL', color=vehicle_col, markers=True,
-                        title="Growth by Vehicle Category"
-                    )
-                    fig.update_layout(
-                        height=400,
-                        xaxis_title="Year",
-                        yaxis_title="Total Registrations",
-                        template="plotly_white"
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.info("📊 No data available for category-wise growth analysis")
+                cat_yearly = data.groupby([year_col, vehicle_col])[total_col].sum().reset_index()
+                fig = px.line(cat_yearly, x=year_col, y=total_col, color=vehicle_col, markers=True,
+                              title="Growth by Vehicle Category")
+                fig.update_layout(height=400, xaxis_title="Year", yaxis_title="Total Registrations", template="plotly_white")
+                st.plotly_chart(fig, use_container_width=True)
+    
+                # Detect top gainers/losers per category
+                cat_diff = cat_yearly.pivot(index=year_col, columns=vehicle_col, values=total_col).diff().fillna(0)
+                top_gainers = cat_diff.iloc[-1].nlargest(3)
+                top_losers = cat_diff.iloc[-1].nsmallest(3)
+                st.subheader("📊 Top Category Movers (Last Year)")
+                st.write("Top Gainers:", top_gainers.to_dict())
+                st.write("Top Losers:", top_losers.to_dict())
+    
+                # Forecast per category for next year
+                forecasts = {}
+                for cat in cat_diff.columns:
+                    x = np.arange(len(cat_diff)).reshape(-1,1)
+                    y = cat_diff[cat].cumsum() + cat_yearly[total_col].min()  # approximate totals
+                    lr = LinearRegression().fit(x, y)
+                    next_val = lr.predict([[len(x)]])[0]
+                    forecasts[cat] = int(next_val)
+                st.subheader("📈 Forecast Next Year per Category")
+                st.write(forecasts)
+    
             except Exception as e:
                 st.warning(f"⚠️ Error creating category growth chart: {e}")
-                st.info("📊 Available columns: " + ", ".join(data.columns.tolist()))
     
         elif vehicle_col and year_col:
-            # Single year distribution
-            st.info("📊 Single year data - current vehicle category distribution")
-            category_totals = data.groupby(vehicle_col)['TOTAL'].sum().reset_index()
-            category_totals = category_totals.sort_values('TOTAL', ascending=False)
-            fig = px.bar(
-                category_totals, x=vehicle_col, y='TOTAL', text='TOTAL',
-                title=f"{vehicle_col} Distribution (Current Year)"
-            )
+            # Single year bar chart
+            category_totals = data.groupby(vehicle_col)[total_col].sum().reset_index().sort_values(total_col, ascending=False)
+            fig = px.bar(category_totals, x=vehicle_col, y=total_col, text=total_col,
+                         title=f"{vehicle_col} Distribution (Current Year)")
             fig.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
             fig.update_layout(height=400, xaxis_tickangle=-45, template="plotly_white")
             st.plotly_chart(fig, use_container_width=True)
-        
-        else:
-            st.warning("⚠️ Cannot create growth chart: Missing vehicle category or year data")
-            st.info(f"📊 Available columns: {', '.join(data.columns.tolist())}")
-            if vehicle_col:
-                st.info(f"✅ Vehicle column found: {vehicle_col}")
-            if year_col:
-                st.info(f"✅ Year column found: {year_col}")
-            st.info(f"📅 Unique years: {data[year_col].nunique() if year_col else 'N/A'}")
     
-    def create_market_share_analysis(self, data: pd.DataFrame):
-        """🥧 Market Composition & Share Analysis - Fully Maxed Investor View"""
-        st.subheader("🥧 Market Composition & Share Analysis")
+        else:
+            st.warning("⚠️ Cannot create growth chart: Missing vehicle category or year data.")
+    
+    def create_maxed_market_share_analysis(data: pd.DataFrame, title="🥧 Market Share & Composition - Fully Maxed"):
+        st.subheader(title)
     
         col1, col2 = st.columns(2)
     
@@ -788,30 +816,38 @@ class ModularVahanDashboard:
         # 1️⃣ Market Share by Vehicle Category/Class
         # ----------------------------
         with col1:
-            vehicle_col = None
-            for col in ['Vehicle Class', 'Vehicle_Category', 'Vehicle_Type']:
-                if col in data.columns:
-                    vehicle_col = col
-                    break
-    
+            vehicle_col = next((c for c in ['Vehicle Class', 'Vehicle_Category', 'Vehicle_Type'] if c in data.columns), None)
             if vehicle_col:
                 vehicle_totals = data.groupby(vehicle_col)['TOTAL'].sum().reset_index()
                 vehicle_totals = vehicle_totals.sort_values('TOTAL', ascending=False)
+                vehicle_totals['%Share'] = vehicle_totals['TOTAL'] / vehicle_totals['TOTAL'].sum() * 100
     
                 fig_pie = px.pie(
                     vehicle_totals,
                     values='TOTAL',
                     names=vehicle_col,
                     title=f'Market Share by {vehicle_col}',
-                    hole=0.3
+                    hole=0.3,
+                    color=vehicle_col,
+                    color_discrete_sequence=px.colors.qualitative.Set3
                 )
-                fig_pie.update_traces(textposition='inside', textinfo='percent+label', pull=[0.05]*len(vehicle_totals))
+                fig_pie.update_traces(
+                    textposition='inside',
+                    textinfo='percent+label',
+                    pull=[0.05]*len(vehicle_totals),
+                    hovertemplate=f"%{{label}}: %{{percent}}<br>Total: %{{value:,}}"
+                )
                 fig_pie.update_layout(
                     height=450,
-                    legend_title=f"{vehicle_col}",
-                    title_font_size=18
+                    title_font_size=18,
+                    legend_title=f"{vehicle_col}"
                 )
                 st.plotly_chart(fig_pie, use_container_width=True)
+    
+                # Alert very small shares (<1%)
+                small_shares = vehicle_totals[vehicle_totals['%Share'] < 1]
+                if not small_shares.empty:
+                    st.warning(f"⚠️ Categories with <1% market share: {small_shares[vehicle_col].tolist()}")
             else:
                 st.info("⚠️ No vehicle category/class column found for market share analysis.")
     
@@ -819,12 +855,7 @@ class ModularVahanDashboard:
         # 2️⃣ Top States by Registrations
         # ----------------------------
         with col2:
-            state_col = None
-            for col in ['State', 'Filter_State']:
-                if col in data.columns:
-                    state_col = col
-                    break
-    
+            state_col = next((c for c in ['State', 'Filter_State'] if c in data.columns), None)
             if state_col:
                 state_totals = data.groupby(state_col)['TOTAL'].sum().reset_index()
                 state_totals = state_totals.sort_values('TOTAL', ascending=False).head(10)
@@ -839,7 +870,11 @@ class ModularVahanDashboard:
                     color='TOTAL',
                     color_continuous_scale='Viridis'
                 )
-                fig_states.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
+                fig_states.update_traces(
+                    texttemplate='%{text:,.0f}',
+                    textposition='outside',
+                    hovertemplate=f"%{{y}}: %{{x:,}}"
+                )
                 fig_states.update_layout(
                     height=500,
                     yaxis=dict(autorange="reversed"),
@@ -852,59 +887,82 @@ class ModularVahanDashboard:
                 st.info("⚠️ No state column found for top state analysis.")
     
         # ----------------------------
-        # Optional Additional Insights
+        # 3️⃣ Vehicle vs State Heatmap (Optional Maxed Insight)
         # ----------------------------
         if vehicle_col and state_col:
+            pivot_table = data.pivot_table(
+                index=state_col,
+                columns=vehicle_col,
+                values='TOTAL',
+                aggfunc='sum',
+                fill_value=0
+            )
+            fig_heatmap = px.imshow(
+                pivot_table,
+                text_auto=True,
+                aspect="auto",
+                color_continuous_scale='Viridis',
+                title="Registrations Heatmap: State vs Vehicle Category",
+            )
+            fig_heatmap.update_layout(height=500, title_font_size=18)
+            st.plotly_chart(fig_heatmap, use_container_width=True)
+    
             st.markdown(
                 f"ℹ️ Market share breakdown shows distribution of {vehicle_col} across the top states by registrations."
             )
     
-    def create_time_series_analysis(self, data: pd.DataFrame):
-        """📅 Time Series Analysis - Fully Maxed Investor View"""
-        st.subheader("📅 Time Series Analysis")
+        # ----------------------------
+        # Optional Contribution Summary
+        # ----------------------------
+        if vehicle_col and state_col:
+            st.subheader("📊 Contribution % Summary")
+            total_all = data['TOTAL'].sum()
+            category_share = data.groupby(vehicle_col)['TOTAL'].sum() / total_all * 100
+            state_share = data.groupby(state_col)['TOTAL'].sum() / total_all * 100
+            st.write("Category Contribution (%):")
+            st.dataframe(category_share.sort_values(ascending=False).round(2))
+            st.write("State Contribution (%):")
+            st.dataframe(state_share.sort_values(ascending=False).round(2))
     
-        # Determine vehicle and year columns dynamically
-        vehicle_col = None
-        for col in ['Vehicle Class', 'Vehicle_Category', 'Vehicle_Type']:
-            if col in data.columns:
-                vehicle_col = col
-                break
+        st.success("✅ Fully Maxed Market Share Analysis Generated!")
     
-        year_col = None
-        for col in ['Year', 'Filter_Year']:
-            if col in data.columns:
-                year_col = col
-                break
+    def create_maxed_time_series_analysis(data: pd.DataFrame, title="📅 Time Series Analysis - Fully Maxed"):
+        st.subheader(title)
     
-        if not vehicle_col or not year_col:
+        # ----------------------------
+        # Dynamic column detection
+        # ----------------------------
+        vehicle_col = next((c for c in ['Vehicle Class', 'Vehicle_Category', 'Vehicle_Type'] if c in data.columns), None)
+        year_col = next((c for c in ['Year', 'Filter_Year'] if c in data.columns), None)
+    
+        if not vehicle_col or not year_col or data.empty:
             st.warning("⚠️ Cannot create time series analysis. Missing vehicle or year data.")
             st.info(f"Available columns: {', '.join(data.columns.tolist())}")
             return
     
-        # Check if multiple years are available
         unique_years = data[year_col].nunique()
+    
         if unique_years > 1:
             # ----------------------------
             # Line Chart: Yearly Trends by Vehicle
             # ----------------------------
             yearly_vehicle = data.groupby([year_col, vehicle_col])['TOTAL'].sum().reset_index()
-    
-            fig_timeline = px.line(
+            fig_line = px.line(
                 yearly_vehicle,
                 x=year_col,
                 y='TOTAL',
                 color=vehicle_col,
-                title=f'Registration Trends by {vehicle_col} Over Time',
-                markers=True
+                markers=True,
+                title=f'Registration Trends by {vehicle_col} Over Time'
             )
-            fig_timeline.update_layout(
+            fig_line.update_layout(
                 height=500,
                 xaxis_title="Year",
                 yaxis_title="Total Registrations",
                 legend_title=vehicle_col,
                 title_font_size=18
             )
-            st.plotly_chart(fig_timeline, use_container_width=True)
+            st.plotly_chart(fig_line, use_container_width=True)
     
             # ----------------------------
             # Heatmap: Registration Intensity
@@ -912,30 +970,60 @@ class ModularVahanDashboard:
             heatmap_data = yearly_vehicle.pivot(index=vehicle_col, columns=year_col, values='TOTAL')
             fig_heatmap = px.imshow(
                 heatmap_data,
-                title=f'Registration Intensity Heatmap ({vehicle_col} vs {year_col})',
+                text_auto=True,
                 color_continuous_scale='Viridis',
-                aspect='auto'
+                aspect='auto',
+                title=f'Registration Intensity Heatmap ({vehicle_col} vs {year_col})'
             )
-            fig_heatmap.update_layout(height=400)
+            fig_heatmap.update_layout(height=400, title_font_size=16)
             st.plotly_chart(fig_heatmap, use_container_width=True)
+    
+            # ----------------------------
+            # Forecast next 1–3 years per vehicle type
+            # ----------------------------
+            st.subheader("📈 Forecast Next 3 Years by Vehicle Type")
+            forecasts = {}
+            for vehicle in yearly_vehicle[vehicle_col].unique():
+                df_vehicle = yearly_vehicle[yearly_vehicle[vehicle_col] == vehicle]
+                X = df_vehicle[year_col].values.reshape(-1,1)
+                y = df_vehicle['TOTAL'].values
+                lr = LinearRegression().fit(X, y)
+                future_years = np.arange(df_vehicle[year_col].max()+1, df_vehicle[year_col].max()+4).reshape(-1,1)
+                pred = lr.predict(future_years)
+                forecasts[vehicle] = {int(future_years[i][0]): int(pred[i]) for i in range(len(future_years))}
+            st.write(forecasts)
+    
+            # ----------------------------
+            # Detect anomalies (sudden drops/spikes)
+            # ----------------------------
+            st.subheader("⚠️ Anomalies Detection")
+            anomalies = {}
+            for vehicle in yearly_vehicle[vehicle_col].unique():
+                df_vehicle = yearly_vehicle[yearly_vehicle[vehicle_col] == vehicle].sort_values(year_col)
+                pct_change = df_vehicle['TOTAL'].pct_change().fillna(0)
+                significant = df_vehicle[year_col][(pct_change > 0.5) | (pct_change < -0.5)].tolist()
+                if significant:
+                    anomalies[vehicle] = significant
+            if anomalies:
+                st.warning(anomalies)
+            else:
+                st.success("No major anomalies detected.")
     
         else:
             # ----------------------------
             # Single Year Distribution
             # ----------------------------
             st.info(f"📊 Single year data - showing {vehicle_col} distribution")
-            vehicle_data = data.groupby(vehicle_col)['TOTAL'].sum().reset_index()
-            vehicle_data = vehicle_data.sort_values('TOTAL', ascending=False)
-    
-            fig_single = px.bar(
+            vehicle_data = data.groupby(vehicle_col)['TOTAL'].sum().reset_index().sort_values('TOTAL', ascending=False)
+            fig_bar = px.bar(
                 vehicle_data,
                 x=vehicle_col,
                 y='TOTAL',
+                text='TOTAL',
                 title=f'{vehicle_col} Distribution (Current Year)',
-                text='TOTAL'
             )
-            fig_single.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
-            fig_single.update_layout(
+            fig_bar.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
+            fig_bar.update_layout(
                 height=400,
                 xaxis_tickangle=-45,
                 margin=dict(b=100),
@@ -943,57 +1031,68 @@ class ModularVahanDashboard:
                 xaxis_title=vehicle_col,
                 title_font_size=18
             )
-            st.plotly_chart(fig_single, use_container_width=True)
+            st.plotly_chart(fig_bar, use_container_width=True)
     
+        # ----------------------------
         # Optional insights
+        # ----------------------------
         st.markdown(
-            f"ℹ️ Time series analysis shows trends and intensity of registrations across {vehicle_col} over {year_col}."
+            f"ℹ️ Time series analysis shows trends, intensity, forecast, and anomalies of registrations across {vehicle_col} over {year_col}."
         )
     
-    def create_manufacturer_analysis(self, data: pd.DataFrame):
-        """🏭 Manufacturer & Vehicle Class Analysis - Investor Maxed"""
-        st.subheader("🏭 Manufacturer & Vehicle Class Analysis")
+    def create_maxed_manufacturer_analysis(data: pd.DataFrame, top_n=15, title="🏭 Manufacturer & Vehicle Class Analysis - Fully Maxed"):
+        st.subheader(title)
     
-        vehicle_col = None
-        for col in ['Vehicle Class', 'Vehicle_Category', 'Vehicle_Type']:
-            if col in data.columns:
-                vehicle_col = col
-                break
-    
-        if not vehicle_col:
+        # ----------------------------
+        # Dynamic vehicle column detection
+        # ----------------------------
+        vehicle_col = next((c for c in ['Vehicle Class', 'Vehicle_Category', 'Vehicle_Type'] if c in data.columns), None)
+        if not vehicle_col or data.empty:
             st.warning("⚠️ Cannot create manufacturer analysis. No vehicle class column found.")
             st.info(f"Available columns: {', '.join(data.columns.tolist())}")
             return
     
-        # Top vehicle classes / manufacturers
+        # ----------------------------
+        # Aggregate top vehicle classes
+        # ----------------------------
         manufacturer_totals = data.groupby(vehicle_col)['TOTAL'].sum().reset_index()
-        manufacturer_totals = manufacturer_totals.sort_values('TOTAL', ascending=False).head(15)
+        manufacturer_totals = manufacturer_totals.sort_values('TOTAL', ascending=False).head(top_n)
+        total_sum = manufacturer_totals['TOTAL'].sum()
+        manufacturer_totals['%Share'] = manufacturer_totals['TOTAL'] / total_sum * 100
     
-        col1, col2 = st.columns(2)
+        # ----------------------------
+        # Layout: Chart + Table
+        # ----------------------------
+        col1, col2 = st.columns([2,1])
     
         # ----------------------------
         # Left: Horizontal Bar Chart
         # ----------------------------
         with col1:
-            fig_manufacturers = px.bar(
+            fig_bar = px.bar(
                 manufacturer_totals,
                 x='TOTAL',
                 y=vehicle_col,
                 orientation='h',
-                title=f'Top 15 {vehicle_col} by Registrations',
                 text='TOTAL',
                 color='TOTAL',
-                color_continuous_scale='Blues'
+                color_continuous_scale='Blues',
+                title=f'Top {top_n} {vehicle_col} by Registrations'
             )
-            fig_manufacturers.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
-            fig_manufacturers.update_layout(
+            fig_bar.update_traces(
+                texttemplate='%{text:,.0f}',
+                textposition='outside',
+                hovertemplate=f"%{{y}}: %{{x:,}} registrations (%{{customdata[0]:.2f}}%)",
+                customdata=manufacturer_totals[['%Share']]
+            )
+            fig_bar.update_layout(
                 height=600,
                 xaxis_title="Total Registrations",
                 yaxis_title=vehicle_col,
                 title_font_size=18,
                 margin=dict(l=0, r=20, t=50, b=50)
             )
-            st.plotly_chart(fig_manufacturers, use_container_width=True)
+            st.plotly_chart(fig_bar, use_container_width=True)
     
         # ----------------------------
         # Right: Data Table
@@ -1002,16 +1101,26 @@ class ModularVahanDashboard:
             st.subheader(f"📊 Top {vehicle_col} Table")
             display_data = manufacturer_totals.copy()
             display_data['TOTAL'] = display_data['TOTAL'].apply(lambda x: f"{x:,}")
+            display_data['%Share'] = display_data['%Share'].round(2)
             st.dataframe(display_data, use_container_width=True)
     
+            # Highlight very small shares
+            small_shares = display_data[display_data['%Share'] < 1]
+            if not small_shares.empty:
+                st.warning(f"⚠️ {vehicle_col} with <1% share: {small_shares[vehicle_col].tolist()}")
+    
+        # ----------------------------
+        # Optional insights
+        # ----------------------------
         st.markdown(
             f"ℹ️ This analysis highlights the top {vehicle_col} in terms of registrations, "
-            "giving investors a clear view of market concentration and leading vehicle types."
+            "giving investors a clear view of market concentration, leading vehicle types, and small contributors."
         )
     
-    def create_comparison_tool(self, data: pd.DataFrame):
-        """🔄 Interactive Comparison Tool - Maxed for Investors"""
-        st.subheader("🔄 Interactive Comparison Tool")
+        st.success("✅ Fully Maxed Manufacturer Analysis Generated!")
+    
+    def create_maxed_comparison_tool(data: pd.DataFrame, title="🔄 Interactive Comparison Tool - Fully Maxed"):
+        st.subheader(title)
     
         col1, col2 = st.columns(2)
     
@@ -1020,12 +1129,7 @@ class ModularVahanDashboard:
         # ----------------------------
         with col1:
             st.markdown("**📍 Compare States**")
-    
-            state_col = None
-            for col_name in ['State', 'Filter_State']:
-                if col_name in data.columns:
-                    state_col = col_name
-                    break
+            state_col = next((c for c in ['State', 'Filter_State'] if c in data.columns), None)
     
             if not state_col:
                 st.warning("⚠️ No state column available for comparison")
@@ -1040,7 +1144,6 @@ class ModularVahanDashboard:
                     comparison_data = data[data[state_col].isin(states_to_compare)]
     
                     if 'Year' in data.columns:
-                        # Line chart for state-wise trends
                         yearly_comparison = comparison_data.groupby(['Year', state_col])['TOTAL'].sum().reset_index()
                         fig_compare = px.line(
                             yearly_comparison,
@@ -1058,15 +1161,15 @@ class ModularVahanDashboard:
                         )
                         st.plotly_chart(fig_compare, use_container_width=True)
                     else:
-                        # Bar chart fallback if no Year column
-                        state_totals = comparison_data.groupby(state_col)['TOTAL'].sum().reset_index()
-                        state_totals = state_totals.sort_values('TOTAL', ascending=False)
+                        state_totals = comparison_data.groupby(state_col)['TOTAL'].sum().reset_index().sort_values('TOTAL', ascending=False)
                         fig_compare = px.bar(
                             state_totals,
                             x=state_col,
                             y='TOTAL',
                             title="📊 State-wise Registration Comparison",
-                            text='TOTAL'
+                            text='TOTAL',
+                            color='TOTAL',
+                            color_continuous_scale='Viridis'
                         )
                         fig_compare.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
                         fig_compare.update_layout(height=400)
@@ -1077,12 +1180,7 @@ class ModularVahanDashboard:
         # ----------------------------
         with col2:
             st.markdown("**🚗 Compare Vehicle Classes**")
-    
-            vehicle_col = None
-            for col_name in ['Vehicle Class', 'Vehicle_Category', 'Vehicle_Type']:
-                if col_name in data.columns:
-                    vehicle_col = col_name
-                    break
+            vehicle_col = next((c for c in ['Vehicle Class', 'Vehicle_Category', 'Vehicle_Type'] if c in data.columns), None)
     
             if not vehicle_col:
                 st.warning("⚠️ No vehicle class column available for comparison")
@@ -1095,8 +1193,7 @@ class ModularVahanDashboard:
     
                 if vehicle_classes_to_compare:
                     vehicle_comparison = data[data[vehicle_col].isin(vehicle_classes_to_compare)]
-                    vehicle_totals = vehicle_comparison.groupby(vehicle_col)['TOTAL'].sum().reset_index()
-                    vehicle_totals = vehicle_totals.sort_values('TOTAL', ascending=False)
+                    vehicle_totals = vehicle_comparison.groupby(vehicle_col)['TOTAL'].sum().reset_index().sort_values('TOTAL', ascending=False)
     
                     fig_vehicle_bar = px.bar(
                         vehicle_totals,
@@ -1117,14 +1214,18 @@ class ModularVahanDashboard:
                     )
                     st.plotly_chart(fig_vehicle_bar, use_container_width=True)
     
+        # ----------------------------
+        # Optional Insights
+        # ----------------------------
         st.markdown(
             "ℹ️ Use this interactive comparison tool to visualize and analyze "
             "state-wise and vehicle class registration trends, providing key insights for investment decisions."
         )
     
-    def create_investor_insights(self, data: pd.DataFrame):
-        """💡 Generate and display investor-focused insights with maxed formatting."""
-        st.subheader("💡 Investor Insights & Analysis")
+        st.success("✅ Fully Maxed Comparison Tool Generated!")
+    
+    def create_maxed_investor_insights(data: pd.DataFrame, title="💡 Investor Insights & Analysis - Fully Maxed"):
+        st.subheader(title)
         
         col1, col2 = st.columns(2)
     
@@ -1133,41 +1234,38 @@ class ModularVahanDashboard:
         # ----------------------------
         with col1:
             st.markdown("### 📊 Market Overview")
-    
             total_registrations = data['TOTAL'].sum() if 'TOTAL' in data.columns else 0
     
-            # Top Vehicle Class
-            vehicle_col = None
-            for col_name in ['Vehicle Class', 'Vehicle_Category', 'Vehicle_Type']:
-                if col_name in data.columns:
-                    vehicle_col = col_name
-                    break
+            # Dynamic vehicle column
+            vehicle_col = next((c for c in ['Vehicle Class', 'Vehicle_Category', 'Vehicle_Type'] if c in data.columns), None)
+            # Top vehicle
             if vehicle_col:
                 top_vehicle = data.groupby(vehicle_col)['TOTAL'].sum().idxmax()
                 st.info(f"🚗 **Top Vehicle Class**: {top_vehicle}")
     
-            # Top State
-            state_col = None
-            for col_name in ['State', 'Filter_State']:
-                if col_name in data.columns:
-                    state_col = col_name
-                    break
+            # Dynamic state column
+            state_col = next((c for c in ['State', 'Filter_State'] if c in data.columns), None)
             if state_col:
                 top_state = data.groupby(state_col)['TOTAL'].sum().idxmax()
                 st.info(f"🏆 **Top State**: {top_state}")
     
-            # Formatted total registrations
+            # Total Market Size
             try:
-                total_registrations = int(float(total_registrations))
-                formatted_total = f"{total_registrations:,}"
+                formatted_total = f"{int(total_registrations):,}"
             except (ValueError, TypeError):
                 formatted_total = str(total_registrations)
-    
             st.metric(
                 "💰 Total Market Size",
                 formatted_total,
                 help="Total number of registered vehicles in the dataset"
             )
+    
+            # Market concentration (Top 3 vehicle classes)
+            if vehicle_col:
+                vehicle_totals = data.groupby(vehicle_col)['TOTAL'].sum().sort_values(ascending=False)
+                if vehicle_totals.sum() > 0:
+                    top_3_share = vehicle_totals.head(3).sum() / vehicle_totals.sum() * 100
+                    st.info(f"🎯 **Top 3 Classes Market Share**: {top_3_share:.1f}%")
     
         # ----------------------------
         # Right Column: Key Insights
@@ -1185,14 +1283,7 @@ class ModularVahanDashboard:
                     else:
                         st.warning(f"📉 **Decline**: {latest_growth:.1f}% YoY")
     
-            # Market concentration (Top 3 vehicle classes)
-            if vehicle_col:
-                vehicle_totals = data.groupby(vehicle_col)['TOTAL'].sum().sort_values(ascending=False)
-                if vehicle_totals.sum() > 0:
-                    top_3_share = vehicle_totals.head(3).sum() / vehicle_totals.sum() * 100
-                    st.info(f"🎯 **Top 3 Classes Market Share**: {top_3_share:.1f}%")
-    
-            # Optional: highlight highest growth vehicle class
+            # Fastest growing vehicle class
             if vehicle_col and 'Year' in data.columns:
                 growth_per_class = data.groupby(['Year', vehicle_col])['TOTAL'].sum().unstack(fill_value=0)
                 if growth_per_class.shape[0] >= 2:
@@ -1201,6 +1292,13 @@ class ModularVahanDashboard:
                                          growth_per_class.loc[prev_year].replace(0, 1)) * 100
                     fastest_growing = growth_rate_class.idxmax()
                     st.info(f"🚀 **Fastest Growing Vehicle Class**: {fastest_growing} ({growth_rate_class.max():.1f}% YoY)")
+    
+            # Optional: highlight negative performers
+            negative_classes = growth_rate_class[growth_rate_class < 0].sort_values()
+            if not negative_classes.empty:
+                st.warning(f"⚠️ Declining Vehicle Classes: {list(negative_classes.index)}")
+    
+        st.success("✅ Fully Maxed Investor Insights Generated!")
     
     def create_export_section(self, data: pd.DataFrame):
         """📥 Create data export and download functionality with maxed features."""
