@@ -1,0 +1,42 @@
+# Core dependencies
+streamlit
+pandas
+numpy
+plotly
+
+# Web scraping
+selenium
+beautifulsoup4
+requests
+lxml
+webdriver-manager
+
+# Data processing and export
+openpyxl
+xlsxwriter
+
+# Utilities
+python-dateutil
+pytz
+six
+pathlib2
+typing-extensions
+
+# Data analysis & ML
+scikit-learn
+matplotlib
+seaborn
+
+# Development and testing
+pytest
+pytest-cov
+black
+flake8
+
+# Documentation
+sphinx
+sphinx-rtd-theme
+
+# Jupyter / notebooks
+jupyter
+notebook
