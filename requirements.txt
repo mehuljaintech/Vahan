@@ -10,6 +10,8 @@ beautifulsoup4
 requests
 lxml
 webdriver-manager
+chromedriver-autoinstaller
+undetected-chromedriver
 
 # Data processing and export
 openpyxl
@@ -40,3 +42,6 @@ sphinx-rtd-theme
 # Jupyter / notebooks
 jupyter
 notebook
+
+# Optional: headless browser support for Linux (Streamlit Cloud)
+pyvirtualdisplay
