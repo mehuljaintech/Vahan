@@ -24,11 +24,15 @@ class VahanScraper(BaseScraper):
     """Enhanced scraper for VAHAN dashboard that handles PrimeFaces dropdown interactions with dynamic IDs."""
     
     def __init__(self, base_url: str = None, wait_time: int = None):
-        """Initialize VAHAN scraper.
-        
+        """
+        MAXED 2025 VAHAN SCRAPER INIT
+    
+        Initialize the VAHAN scraper with logging, WebDriver setup placeholders,
+        and storage for scraped results.
+    
         Args:
-            base_url: VAHAN dashboard URL (uses config default if None)
-            wait_time: Maximum wait time for elements (uses config default if None)
+            base_url (str, optional): VAHAN dashboard URL. Defaults to Config.VAHAN_BASE_URL.
+            wait_time (int, optional): Maximum wait time for page elements. Defaults to Config.DEFAULT_WAIT_TIME.
         """
         super().__init__(
             base_url or Config.VAHAN_BASE_URL,
@@ -39,20 +43,32 @@ class VahanScraper(BaseScraper):
         self.scraped_data: List[Dict] = []
         
     def open_page(self) -> None:
-        """Open the VAHAN dashboard and detect dynamic IDs."""
+        """
+        MAXED 2025 VAHAN PAGE OPEN
+    
+        Open the VAHAN dashboard using the base scraper logic, wait for full load,
+        and detect dynamic element IDs required for interactions.
+        """
         super().open_page()
-        time.sleep(3)  # Wait for page to fully load
+        import time
+        time.sleep(3)  # Ensure page is fully loaded
         self._detect_dynamic_ids()
         
     def _detect_dynamic_ids(self) -> None:
-        """Detect the dynamic IDs for state dropdown and refresh button."""
+        """
+        MAXED 2025 VAHAN DYNAMIC IDS
+    
+        Detect the dynamic IDs for state dropdown and refresh button on the dashboard.
+        This includes multiple fallbacks to handle UI changes.
+        """
         try:
-            # Find state dropdown by looking for the select with state options
+            # --- Detect State Dropdown ---
             state_selects = self.driver.find_elements(
-                By.XPATH, 
-                "//select[option[contains(@data-escape, 'true') and (contains(text(), 'Karnataka') or contains(text(), 'Delhi') or contains(text(), 'Maharashtra'))]]"
+                By.XPATH,
+                "//select[option[contains(@data-escape, 'true') and "
+                "(contains(text(), 'Karnataka') or contains(text(), 'Delhi') or contains(text(), 'Maharashtra'))]]"
             )
-            
+    
             if state_selects:
                 state_select = state_selects[0]
                 state_select_id = state_select.get_attribute('id')
@@ -66,7 +82,7 @@ class VahanScraper(BaseScraper):
                     if parent_div:
                         self.dynamic_state_id = parent_div.get_attribute('id')
                         self.logger.info(f"✓ Detected state dropdown ID: {self.dynamic_state_id}")
-            
+    
             if not self.dynamic_state_id:
                 state_divs = self.driver.find_elements(
                     By.XPATH,
@@ -75,18 +91,17 @@ class VahanScraper(BaseScraper):
                 if state_divs:
                     self.dynamic_state_id = state_divs[0].get_attribute('id')
                     self.logger.info(f"✓ Detected state dropdown ID (fallback): {self.dynamic_state_id}")
-            
-            # Find refresh button by looking for buttons with refresh-related text or icons
+    
+            # --- Detect Refresh Button ---
             refresh_buttons = self.driver.find_elements(
                 By.XPATH,
-                "//button[contains(@class, 'ui-button') and (contains(text(), 'Refresh') or contains(@title, 'Refresh') or .//span[contains(@class, 'ui-icon-refresh')])]"
+                "//button[contains(@class, 'ui-button') and (contains(text(), 'Refresh') "
+                "or contains(@title, 'Refresh') or .//span[contains(@class, 'ui-icon-refresh')])]"
             )
-            
             if refresh_buttons:
                 self.dynamic_refresh_id = refresh_buttons[0].get_attribute('id')
                 self.logger.info(f"✓ Detected refresh button ID: {self.dynamic_refresh_id}")
             else:
-                # Fallback: look for any button with refresh icon
                 refresh_icons = self.driver.find_elements(
                     By.XPATH,
                     "//span[contains(@class, 'ui-icon-refresh')]/parent::button"
@@ -94,117 +109,143 @@ class VahanScraper(BaseScraper):
                 if refresh_icons:
                     self.dynamic_refresh_id = refresh_icons[0].get_attribute('id')
                     self.logger.info(f"✓ Detected refresh button ID (fallback): {self.dynamic_refresh_id}")
-            
+    
+            # --- Final validation ---
             if not self.dynamic_state_id:
-                raise DynamicIDError("Could not detect dynamic state dropdown ID")
+                raise DynamicIDError("❌ Could not detect dynamic state dropdown ID")
             if not self.dynamic_refresh_id:
-                self.logger.warning("⚠️ Could not detect refresh button ID - refresh functionality may not work")
-                
+                self.logger.warning("⚠️ Could not detect refresh button ID - refresh may not work")
+    
         except Exception as e:
-            raise DynamicIDError(f"Failed to detect dynamic IDs: {e}")
+            raise DynamicIDError(f"❌ Failed to detect dynamic IDs: {e}")
     
     @property
     def dropdowns(self) -> Dict[str, str]:
-        """Get dropdown mapping including dynamically detected state ID."""
+        """
+        MAXED 2025 VAHAN DROPDOWNS
+    
+        Get the mapping of dropdowns including dynamically detected state ID.
+        Combines static config dropdowns with live dynamic IDs detected from the page.
+        """
         dropdown_map = Config.STATIC_DROPDOWNS.copy()
         if self.dynamic_state_id:
             dropdown_map["State"] = self.dynamic_state_id
+            self.logger.debug(f"✅ Dynamic state dropdown included: {self.dynamic_state_id}")
+        else:
+            self.logger.debug("⚠️ Dynamic state dropdown not detected, using static config")
         return dropdown_map
     
     def fetch_data(self) -> Dict:
-        """Fetch and parse data from the VAHAN dashboard table."""
+        """
+        MAXED 2025 VAHAN TABLE SCRAPING
+    
+        Fetch and parse data from the VAHAN dashboard table with robust handling,
+        logging, and partial row preview for debugging.
+    
+        Returns:
+            dict: Contains headers, rows, status, and total row count
+        """
         try:
+            # Close any open panels to avoid DOM conflicts
             self._close_all_open_panels()
+    
+            # Wait for table to be visible
             self.wait.until(
                 EC.visibility_of_element_located((By.CSS_SELECTOR, "#combTablePnl table"))
             )
-            
+    
+            # Parse complex table headers (multi-row headers supported)
             headers = self._parse_complex_table_headers()
+    
+            # Collect table rows
             data = []
             row_elements = self.driver.find_elements(By.CSS_SELECTOR, "#combTablePnl tbody tr")
-            
             for row in row_elements:
                 cells = [cell.text.strip() for cell in row.find_elements(By.TAG_NAME, "td")]
                 if any(cells):
                     data.append(cells)
-            
-            self.logger.info(f"📊 Table found - Headers: {len(headers)}, Data rows: {len(data)}")
+    
+            # Logging summary
+            self.logger.info(f"📊 Table fetched - Headers: {len(headers)}, Rows: {len(data)}")
             self.logger.debug(f"Headers: {headers}")
-            
             for i, row in enumerate(data[:5]):
                 self.logger.debug(f"Row {i+1}: {row}")
             if len(data) > 5:
                 self.logger.debug(f"... and {len(data) - 5} more rows")
-            
+    
             return {
                 "headers": headers,
                 "rows": data,
                 "status": "success",
                 "total_rows": len(data)
             }
-            
+    
         except TimeoutException:
             self.logger.warning("⚠️ Timeout waiting for table to load")
             return {"headers": [], "rows": [], "status": "timeout"}
+    
         except Exception as e:
             self.logger.error(f"⚠️ Error fetching data: {e}")
             return {"headers": [], "rows": [], "status": "error", "error": str(e)}
     
     def _parse_complex_table_headers(self) -> List[str]:
-        """Parse complex table headers with proper handling of colspan/rowspan."""
+        """
+        MAXED 2025: Parse complex VAHAN table headers with robust colspan/rowspan support.
+        
+        Handles multi-row headers, dynamic categories, standardizes known vehicle types, 
+        and falls back safely to simple headers if parsing fails.
+        
+        Returns:
+            List[str]: Final ordered list of header names
+        """
         try:
+            # Get table HTML and parse with BeautifulSoup
             table_element = self.driver.find_element(By.CSS_SELECTOR, "#combTablePnl table")
             table_html = table_element.get_attribute('outerHTML')
             soup = BeautifulSoup(table_html, 'html.parser')
-            
-            thead = soup.find('thead', id='vchgroupTable_head')
+    
+            # Find thead, with optional id fallback
+            thead = soup.find('thead', id='vchgroupTable_head') or soup.find('thead')
             if not thead:
-                thead = soup.find('thead')
-            
-            if not thead:
-                self.logger.warning("⚠️ No thead found, falling back to simple header parsing")
+                self.logger.warning("⚠️ No thead found, using simple header fallback")
                 return self._get_simple_headers()
-            
-            header_rows = thead.find_all('tr', role='row')
+    
+            header_rows = thead.find_all('tr', role='row') or thead.find_all('tr')
             self.logger.debug(f"Found {len(header_rows)} header rows")
-            
-            final_headers = []
-            
+    
+            final_headers: List[str] = []
+    
+            # Multi-row header logic
             if len(header_rows) >= 3:
-                first_row = header_rows[0]
-                first_row_cells = first_row.find_all('th')
-                
+                # Include first 2 static columns if present
+                first_row_cells = header_rows[0].find_all('th')
                 for cell in first_row_cells[:2]:
-                    text = cell.get_text(strip=True)
-                    text = re.sub(r'\s+', ' ', text)
+                    text = re.sub(r'\s+', ' ', cell.get_text(strip=True))
                     if 'S No' in text:
                         final_headers.append('S No')
                     elif 'Vehicle Class' in text:
                         final_headers.append('Vehicle Class')
-                
-                last_row = header_rows[-1]
-                category_cells = last_row.find_all('th')
-                
-                for cell in category_cells:
-                    text = cell.get_text(strip=True)
-                    text = re.sub(r'\s+', ' ', text)
-                    
+    
+                # Dynamic vehicle categories from last header row
+                last_row_cells = header_rows[-1].find_all('th')
+                for cell in last_row_cells:
+                    text = re.sub(r'\s+', ' ', cell.get_text(strip=True))
                     if text and text not in ['S No', 'Vehicle Class', '']:
+                        # Normalize known vehicle types
                         if text in ['2WIC', '2WN', '2WT', 'TOTAL', '3WN', '3WT', 'LMV', 'MMV', 'HMV', 'LGV', 'MGV', 'HGV']:
                             final_headers.append(text.strip())
                         elif 'TOTAL' in text.upper():
                             final_headers.append('TOTAL')
                         elif len(text) <= 10:
                             final_headers.append(text)
+    
             else:
+                # Fallback: single or double row headers
                 if header_rows:
                     last_header_row = header_rows[-1]
                     header_cells = last_header_row.find_all(['th', 'td'])
-                    
                     for cell in header_cells:
-                        text = cell.get_text(strip=True)
-                        text = re.sub(r'\s+', ' ', text)
-                        
+                        text = re.sub(r'\s+', ' ', cell.get_text(strip=True))
                         if text and text not in ['', ' ']:
                             if 'S No' in text:
                                 final_headers.append('S No')
@@ -214,150 +255,166 @@ class VahanScraper(BaseScraper):
                                 final_headers.append(text.strip())
                             else:
                                 final_headers.append(text)
-            
+    
             self.logger.info(f"✓ Parsed complex headers ({len(final_headers)} columns): {final_headers}")
             return final_headers
-            
+    
         except Exception as e:
             self.logger.error(f"⚠️ Error parsing complex headers: {e}")
             return self._get_simple_headers()
     
     def _get_simple_headers(self) -> List[str]:
-        """Simple fallback method for header extraction"""
+        """
+        MAXED 2025: Fallback header extraction for VAHAN table.
+    
+        Attempts robust simple header parsing when complex parsing fails.
+        Ensures unique, stripped headers. Provides sane defaults if all fails.
+    
+        Returns:
+            List[str]: Ordered list of header names
+        """
         try:
             header_elements = self.driver.find_elements(By.CSS_SELECTOR, "#combTablePnl thead th")
-            headers = []
+            headers: List[str] = []
             for h in header_elements:
-                text = h.text.strip()
+                text = re.sub(r'\s+', ' ', h.text.strip())
                 if text and text not in headers:
                     headers.append(text)
+            if not headers:
+                # Fallback default headers if table has no detectable headers
+                headers = ['S No', 'Vehicle Class', 'Category 1', 'Category 2', 'Category 3', 'TOTAL']
+            self.logger.debug(f"✅ Simple headers parsed: {headers}")
             return headers
-        except:
-            return ['S No', 'Vehicle Class', 'Category 1', 'Category 2', 'Category 3', 'Total']
+        except Exception as e:
+            self.logger.warning(f"⚠️ Failed to get simple headers: {e}. Using default fallback.")
+            return ['S No', 'Vehicle Class', 'Category 1', 'Category 2', 'Category 3', 'TOTAL']
     
     def scrape_dropdowns(self) -> Dict[str, List[str]]:
-        """Returns a mapping of dropdown labels to their visible choices."""
-        dropdown_data = {}
+        """
+        MAXED 2025: Scrape all dropdowns from VAHAN dashboard with robust logging.
+    
+        Returns:
+            Dict[str, List[str]]: Mapping of dropdown labels to their visible options
+        """
+        dropdown_data: Dict[str, List[str]] = {}
         
         for label, dropdown_id in self.dropdowns.items():
             try:
-                self.logger.info(f"🔍 Scraping {label} dropdown...")
-                items = self._fetch_one_menu_items(dropdown_id)
+                self.logger.info(f"🔍 Scraping '{label}' dropdown (ID: {dropdown_id})...")
+                items: List[str] = self._fetch_one_menu_items(dropdown_id)
                 dropdown_data[label] = items
+                self.logger.debug(f"✅ Found {len(items)} items in '{label}' dropdown")
                 
             except Exception as e:
-                self.logger.error(f"❌ Failed to scrape {label} dropdown: {e}")
+                self.logger.error(f"❌ Failed to scrape '{label}' dropdown: {e}")
                 dropdown_data[label] = []
         
+        self.logger.info(f"✅ Completed scraping {len(dropdown_data)} dropdowns")
         return dropdown_data
     
     def _fetch_one_menu_items(self, base_id: str, max_retries: int = 3) -> List[str]:
-        """Fetch items from a PrimeFaces selectOneMenu with retry logic."""
-        # Handle _input suffix like the original
+        """
+        MAXED 2025: Fetch items from a PrimeFaces selectOneMenu with robust retry and logging.
+    
+        Args:
+            base_id (str): Base ID of the dropdown (without '_input')
+            max_retries (int): Maximum retry attempts for robustness
+    
+        Returns:
+            List[str]: List of dropdown items (or warning messages on failure)
+        """
         if base_id.endswith("_input"):
             base_id = base_id[:-6]
-            
-        for attempt in range(max_retries):
+    
+        for attempt in range(1, max_retries + 1):
             try:
                 self._close_all_open_panels()
-                
-                if attempt > 0:
-                    time.sleep(2)
-                    
-                dropdown_selector = f"{base_id}"
-                self.logger.debug(f"Processing dropdown: {dropdown_selector}")
-                dropdown = self.wait.until(
-                    EC.presence_of_element_located((By.ID, dropdown_selector))
-                )
-                
-                # Scroll into view
+                if attempt > 1:
+                    time.sleep(2)  # backoff between retries
+    
+                self.logger.debug(f"Attempt {attempt}: Processing dropdown '{base_id}'")
+                dropdown = self.wait.until(EC.presence_of_element_located((By.ID, base_id)))
                 self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", dropdown)
-                time.sleep(1)
-                
-                click_successful = False
-                
+                time.sleep(0.5)
+    
+                # Attempt click
                 try:
-                    self.wait.until(EC.element_to_be_clickable((By.ID, dropdown_selector)))
+                    self.wait.until(EC.element_to_be_clickable((By.ID, base_id)))
                     dropdown.click()
-                    click_successful = True
                 except ElementClickInterceptedException:
-                    pass
-                    
-                if not click_successful:
-                    if attempt == max_retries - 1:
-                        raise Exception(f"Could not click dropdown after {max_retries} attempts")
+                    if attempt == max_retries:
+                        raise Exception(f"Click intercepted after {max_retries} attempts")
                     continue
-                
+    
                 # Wait for panel to appear
-                panel_selector = f"{base_id}_panel"
-                panel = self.wait.until(
-                    EC.visibility_of_element_located((By.ID, panel_selector))
-                )
-                
-                items = []
+                panel = self.wait.until(EC.visibility_of_element_located((By.ID, f"{base_id}_panel")))
                 li_elements = panel.find_elements(By.CSS_SELECTOR, "li.ui-selectonemenu-item")
-                
+    
+                items: List[str] = []
                 for li in li_elements:
                     text = li.text.strip()
                     if text and text not in items:
                         items.append(text)
-                
-                # Close the dropdown
+    
+                # Close dropdown safely
                 try:
                     dropdown.click()
                 except:
-                    body = self.driver.find_element(By.TAG_NAME, "body")
-                    body.click()
-                
+                    self.driver.find_element(By.TAG_NAME, "body").click()
+    
                 if items:
-                    self.logger.info(f"✅ Found {len(items)} items for {base_id}")
+                    self.logger.info(f"✅ Found {len(items)} items for '{base_id}'")
                     return items
-                
+                else:
+                    self.logger.warning(f"⚠️ Dropdown '{base_id}' returned no items on attempt {attempt}")
+    
             except TimeoutException as e:
-                self.logger.warning(f"⚠️ Attempt {attempt + 1} failed for {base_id}: Timeout - {e}")
-                if attempt == max_retries - 1:
-                    return [f"⚠️ Timeout: Panel not found for {base_id}"]
-                continue
-                
+                self.logger.warning(f"⚠️ Attempt {attempt} timeout for '{base_id}': {e}")
             except Exception as e:
-                self.logger.warning(f"⚠️ Attempt {attempt + 1} failed for {base_id}: {e}")
-                if attempt == max_retries - 1:
-                    return [f"⚠️ Error (attempt {attempt + 1}): {str(e)[:100]}..."]
-                continue
-                
-        return [f"⚠️ Failed after {max_retries} attempts"]
+                self.logger.warning(f"⚠️ Attempt {attempt} failed for '{base_id}': {str(e)[:150]}...")
+    
+        return [f"⚠️ Failed after {max_retries} attempts for '{base_id}'"]
     
     def _close_all_open_panels(self) -> None:
-        """Close any open dropdown panels to prevent click interception."""
+        """
+        MAXED 2025: Close any open PrimeFaces selectOneMenu panels to prevent click interception.
+        """
         try:
             open_panels = self.driver.find_elements(
-                By.CSS_SELECTOR, 
+                By.CSS_SELECTOR,
                 "div[id$='_panel'].ui-selectonemenu-panel[style*='display: block'], "
                 "div[id$='_panel'].ui-selectonemenu-panel:not([style*='display: none'])"
             )
-            
             for panel in open_panels:
                 try:
                     body = self.driver.find_element(By.TAG_NAME, "body")
                     ActionChains(self.driver).move_to_element(body).click().perform()
                     time.sleep(0.5)
-                except:
+                except Exception:
                     continue
         except Exception:
             try:
                 body = self.driver.find_element(By.TAG_NAME, "body")
                 body.click()
                 time.sleep(1)
-            except:
+            except Exception:
                 pass
     
     def apply_filters(self, filters: dict[str, str]) -> dict:
-        """Apply filters to the VAHAN dashboard."""
+        """
+        MAXED 2025: Apply filters to VAHAN dashboard dropdowns and refresh the table.
+        
+        Args:
+            filters: Dictionary mapping filter labels to desired values.
+        
+        Returns:
+            dict: Result of refreshing the table after filters are applied.
+        """
         dropdown_map = self.dropdowns
         
         for label, value in filters.items():
             if label not in dropdown_map:
-                print(f"Unknown filter: {label}")
+                self.logger.warning(f"⚠️ Unknown filter label: {label}")
                 continue
                 
             widget_id = dropdown_map[label]
@@ -384,104 +441,145 @@ class VahanScraper(BaseScraper):
                 option = panel.find_element(By.XPATH, item_xpath)
                 option.click()
                 
-                print(f"Selected {label}: {value}")
+                self.logger.info(f"✅ Selected {label}: {value}")
                 time.sleep(1)
                 
             except Exception as e:
-                print(f"Error applying filter {label}: {e}")
+                self.logger.warning(f"⚠️ Error applying filter {label}: {e}")
         
         return self._click_refresh_button()
     
     def _select_dropdown_option(self, dropdown_id: str, option_value: str) -> None:
-        """Select an option from a dropdown."""
+        """
+        MAXED 2025: Select an option from a PrimeFaces-style dropdown safely.
+    
+        Args:
+            dropdown_id: The dynamic ID of the dropdown container.
+            option_value: The visible text of the option to select.
+    
+        Raises:
+            DropdownError: If selection fails after retries.
+        """
         try:
             self._close_all_open_panels()
-            
-            # Click dropdown trigger
+    
+            # Click the dropdown trigger
             trigger_xpath = f"//div[@id='{dropdown_id}']//div[contains(@class, 'ui-selectonemenu-trigger')]"
             trigger = self.wait.until(EC.element_to_be_clickable((By.XPATH, trigger_xpath)))
             ActionChains(self.driver).move_to_element(trigger).click().perform()
             time.sleep(1)
-            
-            # Find and click the option
-            option_xpath = f"//div[@id='{dropdown_id}_panel']//li[@data-label='{option_value}' or text()='{option_value}']"
+    
+            # Locate the desired option and click
+            option_xpath = f"//div[@id='{dropdown_id}_panel']//li[@data-label='{option_value}' or normalize-space(text())='{option_value}']"
             option = self.wait.until(EC.element_to_be_clickable((By.XPATH, option_xpath)))
             ActionChains(self.driver).move_to_element(option).click().perform()
-            
+    
             self.logger.info(f"✅ Selected '{option_value}' from {dropdown_id}")
-            
+    
         except Exception as e:
-            raise DropdownError(f"Failed to select '{option_value}' from {dropdown_id}: {e}")
+            raise DropdownError(f"⚠️ Failed to select '{option_value}' from {dropdown_id}: {e}")
     
     def _click_refresh_button(self) -> dict:
-        """Skip refresh button click and directly fetch data."""
+        """
+        MAXED 2025: Skip actual refresh button and safely fetch VAHAN table data.
+    
+        Returns:
+            dict: Table data with headers, rows, and status.
+        """
         try:
-            print("⏳ Skipping refresh button, fetching data directly...")
-            time.sleep(2)  # Brief wait for any filter changes to take effect
-            
-            try:
-                self.wait.until(
-                    EC.presence_of_element_located((By.ID, "combTablePnl"))
-                )
-                return self.fetch_data()
-            except TimeoutException:
-                print("⚠️ Table didn't load within timeout period")
-                return {"headers": [], "rows": [], "status": "timeout"}
-                
+            self.logger.info("⏳ Skipping refresh button, fetching data directly...")
+            time.sleep(2)  # Allow filter changes to propagate
+    
+            # Wait for the main table panel to be present
+            self.wait.until(EC.presence_of_element_located((By.ID, "combTablePnl")))
+    
+            # Fetch and return table data
+            return self.fetch_data()
+    
+        except TimeoutException:
+            self.logger.warning("⚠️ Table did not load within the timeout period")
+            return {"headers": [], "rows": [], "status": "timeout"}
+    
         except Exception as e:
-            print(f"Error fetching data: {e}")
+            self.logger.error(f"❌ Error fetching table data: {e}")
             return {"headers": [], "rows": [], "status": "error", "error": str(e)}
     
     def scrape_multiple_combinations(self, combinations: list[dict]) -> pd.DataFrame:
-        """Scrape data for multiple filter combinations and return as DataFrame."""
+        """
+        MAXED 2025: Scrape VAHAN dashboard for multiple filter combinations.
+    
+        Args:
+            combinations (list[dict]): List of filter dictionaries
+    
+        Returns:
+            pd.DataFrame: Aggregated data with filters and scrape timestamp
+        """
+        from datetime import datetime
+        import pandas as pd
+        import time
+    
         all_data = []
-        
+    
         for i, filters in enumerate(combinations):
-            print(f"\n--- Scraping combination {i+1}/{len(combinations)} ---")
-            print(f"Filters: {filters}")
-            
+            self.logger.info(f"--- Scraping combination {i+1}/{len(combinations)} --- Filters: {filters}")
+    
             try:
                 result = self.apply_filters(filters)
-                
+    
                 if result.get("status") == "success" and result.get("rows"):
-                    # Add metadata to each row
+                    headers = result.get("headers", [])
                     for row_data in result["rows"]:
-                        if len(row_data) >= len(result["headers"]):
-                            row_dict = dict(zip(result["headers"], row_data))
-                            # Add filter information
-                            for filter_key, filter_value in filters.items():
-                                row_dict[f"Filter_{filter_key}"] = filter_value
+                        if len(row_data) >= len(headers):
+                            row_dict = dict(zip(headers, row_data))
+                            # Add filter metadata
+                            for k, v in filters.items():
+                                row_dict[f"Filter_{k}"] = v
                             row_dict["Scraped_Date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             all_data.append(row_dict)
-                
-                print(f"✅ Successfully scraped {len(result.get('rows', []))} rows")
-                
+    
+                    self.logger.info(f"✅ Scraped {len(result.get('rows', []))} rows for combination {i+1}")
+    
+                else:
+                    self.logger.warning(f"⚠️ No data returned for combination {i+1}")
+    
             except Exception as e:
-                print(f"❌ Error scraping combination {filters}: {e}")
+                self.logger.error(f"❌ Error scraping combination {filters}: {e}")
                 continue
-            
-            # Add delay between combinations
+    
+            # Optional delay to avoid overwhelming the server
             time.sleep(2)
-        
+    
         if all_data:
             df = pd.DataFrame(all_data)
-            print(f"\n📊 Total data collected: {len(df)} rows, {len(df.columns)} columns")
+            self.logger.info(f"📊 Total scraped rows: {len(df)}, columns: {len(df.columns)}")
             return df
         else:
-            print("\n⚠️ No data collected")
+            self.logger.warning("⚠️ No data collected across all combinations")
             return pd.DataFrame()
     
     def save_data(self, data: pd.DataFrame, filename: str = None) -> str:
-        """Save scraped data to CSV file."""
+        """
+        MAXED 2025: Save scraped VAHAN data to CSV with full logging.
+    
+        Args:
+            data (pd.DataFrame): Data to save
+            filename (str, optional): Desired filename (auto-generated if None)
+    
+        Returns:
+            str: Path to saved CSV
+        """
+        import pandas as pd
+    
         if filename is None:
             filename = Config.get_output_filename("vahan_data")
-        
+    
         filepath = Config.OUTPUT_DIR / filename
         Config.ensure_directories()
-        
+    
         try:
             data.to_csv(filepath, index=False)
-            self.logger.info(f"💾 Data saved to {filepath}")
+            self.logger.info(f"💾 Data successfully saved to {filepath} ({len(data)} rows, {len(data.columns)} columns)")
             return str(filepath)
         except Exception as e:
+            self.logger.error(f"❌ Failed to save data to {filepath}: {e}")
             raise ScrapingError(f"Failed to save data: {e}")
