@@ -14,596 +14,333 @@ from ..core.exceptions import ValidationError
 from ..utils.logging_utils import get_logger
 
 def create_sample_data() -> pd.DataFrame:
-    """
-    MAXED 2025: Create rich, realistic synthetic VAHAN-style registration data
-    for testing ETL, dashboards, ML pipelines, or scraper validation.
-
+    """Create sample VAHAN data for testing purposes.
+    
     Returns:
-        pd.DataFrame: Fully structured synthetic VAHAN dataset
+        pd.DataFrame: Sample VAHAN data
     """
-    # --- Seeding for stable reproducibility ---
     np.random.seed(42)
     random.seed(42)
-
-    # --- Master domain values ---
-    states = [
-        'Karnataka', 'Maharashtra', 'Delhi', 'Tamil Nadu',
-        'Gujarat', 'Uttar Pradesh', 'West Bengal'
-    ]
+    
+    states = ['Karnataka', 'Maharashtra', 'Delhi', 'Tamil Nadu', 'Gujarat', 'Uttar Pradesh', 'West Bengal']
     years = [2021, 2022, 2023, 2024]
-
-    vehicle_classes = [
-        'MOTOR CYCLE', 'SCOOTER', 'CAR', 'AUTO RICKSHAW',
-        'TRUCK', 'BUS', 'TEMPO', 'TRACTOR'
-    ]
-
-    # --- Output container ---
+    vehicle_classes = ['MOTOR CYCLE', 'SCOOTER', 'CAR', 'AUTO RICKSHAW', 'TRUCK', 'BUS', 'TEMPO', 'TRACTOR']
+    
     sample_data = []
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
+    
     for state in states:
-        state_code_num = np.random.randint(10, 99)
-
         for year in years:
-            # Realistic YoY multipliers
-            year_growth = {
-                2021: 1.00,
-                2022: np.random.uniform(1.05, 1.15),
-                2023: np.random.uniform(1.08, 1.20),
-                2024: np.random.uniform(1.10, 1.25),
-            }[year]
-
             for vehicle_class in vehicle_classes:
-
-                # --- Base registrations with variance ---
-                base_reg = np.random.randint(1200, 60000)
-                registrations = int(base_reg * year_growth)
-
-                # --- Category numbers by vehicle type ---
-                is_2w = vehicle_class in ["MOTOR CYCLE", "SCOOTER"]
-                is_3w = vehicle_class in ["AUTO RICKSHAW", "TEMPO"]
-                is_lmv = vehicle_class in ["CAR", "TEMPO"]
-                is_mmv = vehicle_class in ["TRUCK", "BUS"]
-                is_hmv = vehicle_class in ["TRUCK", "BUS", "TRACTOR"]
-
-                row = {
-                    "S No": len(sample_data) + 1,
-                    "Vehicle Class": vehicle_class,
-
-                    # 2W categories
-                    "2WIC": np.random.randint(100, 1200) if is_2w else 0,
-                    "2WN" : np.random.randint(800, 6000)  if is_2w else 0,
-                    "2WT" : np.random.randint(200, 2200)  if is_2w else 0,
-
-                    # 3W categories
-                    "3WN" : np.random.randint(150, 1700)  if is_3w else 0,
-                    "3WT" : np.random.randint(80, 950)    if is_3w else 0,
-
-                    # LMV/MMV/HMV
-                    "LMV": np.random.randint(300, 4000)   if is_lmv else 0,
-                    "MMV": np.random.randint(80, 1200)    if is_mmv else 0,
-                    "HMV": np.random.randint(40, 800)     if is_hmv else 0,
-
-                    # Total registration number
-                    "TOTAL": registrations,
-
-                    # Filter metadata
-                    "Filter_State": f"{state}({state_code_num})",
-                    "Filter_Year": str(year),
-                    "Filter_Vehicle_Type": "ALL",
-
-                    # Timestamp
-                    "Scraped_Date": now_str,
-                }
-
-                sample_data.append(row)
-
-    df = pd.DataFrame(sample_data)
-
-    # --- Shuffle rows to mimic real scraped randomness ---
-    df = df.sample(frac=1, random_state=42).reset_index(drop=True)
-
-    return df
+                # Generate realistic registration numbers with growth trends
+                base_registrations = np.random.randint(1000, 50000)
+                
+                # Add year-over-year growth
+                growth_factor = 1.0
+                if year == 2022:
+                    growth_factor = np.random.uniform(1.05, 1.15)  # 5-15% growth
+                elif year == 2023:
+                    growth_factor = np.random.uniform(1.08, 1.20)  # 8-20% growth
+                elif year == 2024:
+                    growth_factor = np.random.uniform(1.10, 1.25)  # 10-25% growth
+                
+                registrations = int(base_registrations * growth_factor)
+                
+                # Generate category-specific numbers
+                two_w_ic = np.random.randint(100, 1000) if 'MOTOR' in vehicle_class or 'SCOOTER' in vehicle_class else 0
+                two_w_n = np.random.randint(500, 5000) if 'MOTOR' in vehicle_class or 'SCOOTER' in vehicle_class else 0
+                two_w_t = np.random.randint(200, 2000) if 'MOTOR' in vehicle_class or 'SCOOTER' in vehicle_class else 0
+                three_w_n = np.random.randint(100, 1500) if 'AUTO' in vehicle_class or 'TEMPO' in vehicle_class else 0
+                three_w_t = np.random.randint(50, 800) if 'AUTO' in vehicle_class or 'TEMPO' in vehicle_class else 0
+                lmv = np.random.randint(200, 3000) if vehicle_class in ['CAR', 'TEMPO'] else 0
+                mmv = np.random.randint(50, 1000) if vehicle_class in ['TRUCK', 'BUS'] else 0
+                hmv = np.random.randint(20, 500) if vehicle_class in ['TRUCK', 'BUS', 'TRACTOR'] else 0
+                
+                sample_data.append({
+                    'S No': len(sample_data) + 1,
+                    'Vehicle Class': vehicle_class,
+                    '2WIC': two_w_ic,
+                    '2WN': two_w_n,
+                    '2WT': two_w_t,
+                    '3WN': three_w_n,
+                    '3WT': three_w_t,
+                    'LMV': lmv,
+                    'MMV': mmv,
+                    'HMV': hmv,
+                    'TOTAL': registrations,
+                    'Filter_State': f"{state}({np.random.randint(10, 99)})",
+                    'Filter_Year': str(year),
+                    'Filter_Vehicle_Type': 'ALL',
+                    'Scraped_Date': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                })
+    
+    return pd.DataFrame(sample_data)
 
 def validate_data_format(data: pd.DataFrame) -> Tuple[bool, List[str]]:
-    """Validate the structure, completeness, and quality of VAHAN dataset.
+    """Validate VAHAN data format and structure.
     
     Args:
-        data (pd.DataFrame): DataFrame to validate.
-
+        data: DataFrame to validate
+        
     Returns:
-        Tuple[bool, List[str]]: (is_valid, issues_list)
+        Tuple[bool, List[str]]: (is_valid, list_of_issues)
     """
     logger = get_logger(__name__)
-    issues: List[str] = []
-
-    # --- Basic checks --------------------------------------------------------
+    issues = []
+    
+    # Check if DataFrame is empty
     if data.empty:
         issues.append("DataFrame is empty")
         return False, issues
-
-    # --- Required columns check ---------------------------------------------
+    
+    # Check for required columns
     required_columns = ['TOTAL']
     missing_required = [col for col in required_columns if col not in data.columns]
     if missing_required:
         issues.append(f"Missing required columns: {missing_required}")
-
-    # --- Numeric column validation ------------------------------------------
-    numeric_cols = [col for col in Config.NUMERIC_COLUMNS if col in data.columns]
-    if not numeric_cols:
-        issues.append("No expected numeric columns present")
-    else:
-        for col in numeric_cols:
-            try:
-                pd.to_numeric(data[col], errors="coerce")
-            except Exception as exc:
-                issues.append(f"Column `{col}` cannot be interpreted as numeric: {exc}")
-
-    # --- Temporal columns ----------------------------------------------------
-    temporal_cols = [c for c in data.columns 
-                     if any(key in c.lower() for key in ("year", "date", "time"))]
-    if not temporal_cols:
-        issues.append("No temporal columns detected (year, date, time)")
-
-    # --- Location/state columns ---------------------------------------------
-    location_cols = [c for c in data.columns
-                     if any(key in c.lower() for key in ("state", "location", "region"))]
-    if not location_cols:
+    
+    # Check for numeric columns
+    numeric_columns_present = [col for col in Config.NUMERIC_COLUMNS if col in data.columns]
+    if not numeric_columns_present:
+        issues.append("No numeric columns found from expected list")
+    
+    # Validate numeric data
+    for col in numeric_columns_present:
+        try:
+            # Try to convert to numeric
+            pd.to_numeric(data[col], errors='coerce')
+        except Exception as e:
+            issues.append(f"Column {col} contains non-numeric data: {e}")
+    
+    # Check for temporal columns
+    temporal_columns = [col for col in data.columns if any(keyword in col.lower() 
+                       for keyword in ['year', 'date', 'time'])]
+    if not temporal_columns:
+        issues.append("No temporal columns found (year, date, time)")
+    
+    # Check for state/location columns
+    location_columns = [col for col in data.columns if any(keyword in col.lower() 
+                       for keyword in ['state', 'location', 'region'])]
+    if not location_columns:
         issues.append("No location columns found (state, region)")
-
-    # --- Missing data check --------------------------------------------------
+    
+    # Check data quality
     total_rows = len(data)
+    
+    # Check for excessive missing values
     for col in data.columns:
-        missing_ratio = data[col].isna().mean() * 100
-        if missing_ratio > 50:
-            issues.append(f"Column `{col}` has {missing_ratio:.1f}% missing values")
-
-    # --- Duplicate rows ------------------------------------------------------
+        missing_pct = (data[col].isnull().sum() / total_rows) * 100
+        if missing_pct > 50:
+            issues.append(f"Column {col} has {missing_pct:.1f}% missing values")
+    
+    # Check for duplicate rows
     duplicate_count = data.duplicated().sum()
     if duplicate_count > 0:
         issues.append(f"Found {duplicate_count} duplicate rows")
-
-    # --- Log results ---------------------------------------------------------
+    
+    # Log validation results
     if issues:
-        logger.warning(f"⚠️ Validation finished with {len(issues)} issues:")
+        logger.warning(f"⚠️ Data validation found {len(issues)} issues")
         for issue in issues:
             logger.warning(f"  - {issue}")
-        return False, issues
-
-    logger.info("✅ Data validation passed — no issues found")
-    return True, []
+    else:
+        logger.info("✅ Data validation passed")
+    
+    return len(issues) == 0, issues
 
 def normalize_column_names(data: pd.DataFrame) -> pd.DataFrame:
-    """Normalize DataFrame column names using intelligent matching.
+    """Normalize column names to standard format.
     
-    Handles:
-    - Case-insensitive matching
-    - Underscore / space / hyphen normalization
-    - Common alias mapping
-    - Consistent final naming (PascalCase or defined mappings)
+    Args:
+        data: DataFrame with potentially inconsistent column names
+        
+    Returns:
+        pd.DataFrame: DataFrame with normalized column names
     """
-    df = data.copy()
-
-    # --- Canonical target column names -----------------------------------------
-    canonical_map = {
-        "total": "TOTAL",
-        "grandtotal": "TOTAL",
-        "grand_total": "TOTAL",
-
-        "state": "State",
-        "statename": "State",
-        "state_name": "State",
-        "filterstate": "Filter_State",
-
-        "year": "Year",
-        "filteryear": "Filter_Year",
-
-        "vehicleclass": "Vehicle Class",
-        "vehicle_class": "Vehicle Class",
-        "vehicletype": "Vehicle Class",
-        "vehicle type": "Vehicle Class",
+    data_copy = data.copy()
+    
+    # Column name mappings
+    column_mappings = {
+        # Common variations for total
+        'total': 'TOTAL',
+        'Total': 'TOTAL',
+        'grand_total': 'TOTAL',
+        'Grand Total': 'TOTAL',
+        
+        # State variations
+        'state': 'State',
+        'State Name': 'State',
+        'state_name': 'State',
+        'filter_state': 'Filter_State',
+        
+        # Year variations
+        'year': 'Year',
+        'Year': 'Year',
+        'filter_year': 'Filter_Year',
+        
+        # Vehicle class variations
+        'vehicle_class': 'Vehicle Class',
+        'vehicleclass': 'Vehicle Class',
+        'vehicle type': 'Vehicle Class',
+        'vehicle_type': 'Vehicle Class',
     }
-
-    def normalize_key(col: str) -> str:
-        """Normalize a column name into a comparable token."""
-        return (
-            col.replace(" ", "")
-               .replace("_", "")
-               .replace("-", "")
-               .strip()
-               .lower()
-        )
-
-    # --- Apply intelligent normalization ---------------------------------------
-    new_names = {}
-
-    for col in df.columns:
-        key = normalize_key(col)
-
-        # If a canonical mapping exists — use it
-        if key in canonical_map:
-            new_names[col] = canonical_map[key]
-        else:
-            # Otherwise standardize format: PascalCase (or keep original)
-            parts = re.split(r"[_\-\s]+", col.strip())
-            new_names[col] = " ".join(p.capitalize() for p in parts if p)
-
-    return df.rename(columns=new_names)
+    
+    # Apply mappings
+    for old_name, new_name in column_mappings.items():
+        if old_name in data_copy.columns:
+            data_copy = data_copy.rename(columns={old_name: new_name})
+    
+    return data_copy
 
 def detect_data_source(data: pd.DataFrame) -> str:
-    """Intelligently detect the source/type of VAHAN data using multi-signal rules.
+    """Detect the likely source/type of VAHAN data.
     
-    Detection hierarchy:
-    - Strong signals (Scraped_Date, system columns)
-    - Structural patterns (Filter_*, category columns)
-    - Weak signals (column similarity, numeric profiles)
-    - Fallback = Unknown
+    Args:
+        data: DataFrame to analyze
+        
+    Returns:
+        str: Detected data source type
     """
-
-    df = data.copy()
-    cols = set(df.columns)
-    lower_cols = {c.lower(): c for c in cols}  # lowercase mapped to real
-
-    # --- Strong Signals -------------------------------------------------------
-    if "Scraped_Date" in cols:
+    # Check for scraped data indicators
+    if 'Scraped_Date' in data.columns:
         return "Live Scraped Data"
-
-    if any(c.startswith("Filter_") for c in cols):
+    
+    # Check for filter columns (indicates dashboard export)
+    filter_columns = [col for col in data.columns if col.startswith('Filter_')]
+    if filter_columns:
         return "Dashboard Export"
-
-    if "Vehicle_Category" in cols or "vehicle_category" in lower_cols:
+    
+    # Check for processed data indicators
+    if 'Vehicle_Category' in data.columns:
         return "Processed Data"
-
-    # --- Structural Signals ---------------------------------------------------
-    raw_required = {"vehicle class", "total"}
-    normalized = {c.lower().replace("_", " ").strip() for c in cols}
-
-    if raw_required.issubset(normalized):
-        # Check if it's "pure" raw data (no filters, no processed columns)
-        processed_like = any(
-            kw in normalized
-            for kw in ["category", "segment", "cleaned", "normalized"]
-        )
-        if not processed_like:
-            return "Raw VAHAN Data"
-
-    # --- Pattern-Based Heuristics --------------------------------------------
-    # Detect Excel/CSV exports (common prefixes/sheet-like names)
-    exporting_patterns = ["sheet", "export", "downloaded", "x_", "index"]
-    if any(any(p in c.lower() for p in exporting_patterns) for c in cols):
-        return "CSV/Excel Export"
-
-    # Detect user-enriched datasets
-    user_added_signals = ["source", "created_by", "meta", "scraper_version"]
-    if any(s in normalized for s in user_added_signals):
-        return "User-Enhanced Data"
-
-    # If lots of numeric operational columns → indicates raw dashboard
-    numeric_like = [
-        c for c in cols
-        if c.lower() not in ["vehicle class", "state", "year"]
-        and df[c].dtype.kind in "if"
-    ]
-    if len(numeric_like) >= 5:
-        return "Likely Raw VAHAN Data"
-
-    # --- Weak Heuristic Matching ----------------------------------------------
-    # If columns relate to trend analysis, pivot, aggregated views
-    agg_keywords = ["growth", "trend", "pivot", "rolling", "avg", "rate"]
-    if any(any(k in c.lower() for k in agg_keywords) for c in cols):
-        return "Aggregated / Analytics Data"
-
-    # --------------------------------------------------------------------------
+    
+    # Check column structure to infer source
+    if all(col in data.columns for col in ['Vehicle Class', 'TOTAL']):
+        return "Raw VAHAN Data"
+    
     return "Unknown Source"
 
 def calculate_data_quality_score(data: pd.DataFrame) -> Dict:
-    """
-    Advanced data quality scoring with multi-dimensional metrics:
-    - Completeness
-    - Consistency
-    - Validity
-    - Uniqueness
-    - Outlier detection
-    - Schema stability
-
-    Returns detailed scoring + issues.
+    """Calculate a data quality score and metrics.
+    
+    Args:
+        data: DataFrame to analyze
+        
+    Returns:
+        Dict: Data quality metrics and score
     """
     metrics = {
-        "total_rows": len(data),
-        "total_columns": len(data.columns),
-        "completeness_score": 0,
-        "consistency_score": 0,
-        "validity_score": 0,
-        "uniqueness_score": 0,
-        "schema_score": 0,
-        "outlier_score": 0,
-        "overall_score": 0,
-        "issues": [],
+        'total_rows': len(data),
+        'total_columns': len(data.columns),
+        'completeness_score': 0,
+        'consistency_score': 0,
+        'validity_score': 0,
+        'overall_score': 0,
+        'issues': []
     }
-
-    # ----------------------------------------------------------------------
-    # 🔴 Empty dataset
-    # ----------------------------------------------------------------------
+    
     if data.empty:
-        metrics["issues"].append("Dataset is empty – cannot evaluate quality")
-        metrics["overall_score"] = 0
+        metrics['overall_score'] = 0
+        metrics['issues'].append("Dataset is empty")
         return metrics
-
-    # ======================================================================
-    # 1️⃣ COMPLETENESS (Missing values)
-    # ======================================================================
+    
+    # Completeness: percentage of non-null values
     total_cells = data.size
     non_null_cells = data.count().sum()
     completeness = (non_null_cells / total_cells) * 100
-    metrics["completeness_score"] = round(completeness, 2)
-
-    missing_per_column = data.isnull().mean() * 100
-    for col, pct in missing_per_column.items():
-        if pct > 30:
-            metrics["issues"].append(f"Column '{col}' has high missing values ({pct:.1f}%)")
-
-    # ======================================================================
-    # 2️⃣ CONSISTENCY (Data type correctness)
-    # ======================================================================
-    consistency_penalty = 0
-
-    for col in data.columns:
-        col_data = data[col]
-
-        # Detect numeric columns automatically (not only Config.NUMERIC_COLUMNS)
-        if col_data.dtype.kind in "iuf" or col.lower() in {c.lower() for c in Config.NUMERIC_COLUMNS}:
+    metrics['completeness_score'] = round(completeness, 2)
+    
+    # Consistency: check for consistent data types and formats
+    consistency_issues = 0
+    
+    # Check numeric columns
+    for col in Config.NUMERIC_COLUMNS:
+        if col in data.columns:
             try:
-                pd.to_numeric(col_data, errors="raise")
+                pd.to_numeric(data[col], errors='raise')
             except:
-                consistency_penalty += 1
-                metrics["issues"].append(f"Inconsistent numeric format in '{col}'")
-
-        # Detect datetime columns
-        if any(key in col.lower() for key in ["date", "time", "year"]):
-            try:
-                pd.to_datetime(col_data, errors="raise")
-            except:
-                metrics["issues"].append(f"Inconsistent datetime format in '{col}'")
-                consistency_penalty += 1
-
-    metrics["consistency_score"] = max(0, 100 - consistency_penalty * 8)
-
-    # ======================================================================
-    # 3️⃣ VALIDITY (Range checks + logical correctness)
-    # ======================================================================
-    validity_penalty = 0
-
-    if "TOTAL" in data.columns:
-        # Invalid negatives
-        negatives = (data["TOTAL"] < 0).sum()
-        if negatives > 0:
-            validity_penalty += 1
-            metrics["issues"].append(f"{negatives} negative TOTAL values found")
-
-        # Extreme values (higher threshold auto-calculated via IQR)
-        q1, q3 = data["TOTAL"].quantile([0.25, 0.75])
-        iqr = q3 - q1
-        upper_threshold = q3 + 3 * iqr
-
-        extreme = (data["TOTAL"] > upper_threshold).sum()
-        if extreme > 0:
-            validity_penalty += 1
-            metrics["issues"].append(
-                f"{extreme} extreme TOTAL values detected (>{int(upper_threshold)})"
-            )
-
-    metrics["validity_score"] = max(0, 100 - validity_penalty * 12)
-
-    # ======================================================================
-    # 4️⃣ UNIQUENESS (Duplicate rows)
-    # ======================================================================
-    duplicate_count = data.duplicated().sum()
-    duplicate_pct = (duplicate_count / len(data)) * 100
-    metrics["uniqueness_score"] = max(0, 100 - duplicate_pct)
-
-    if duplicate_count > 0:
-        metrics["issues"].append(f"{duplicate_count} duplicate rows detected")
-
-    # ======================================================================
-    # 5️⃣ SCHEMA STABILITY (Column naming quality)
-    # ======================================================================
-    schema_penalty = 0
-
-    for col in data.columns:
-        if not col.strip():
-            schema_penalty += 1
-            metrics["issues"].append("Unnamed/empty column detected")
-            continue
-
-        # Too many special characters → low schema quality
-        if any(ch in col for ch in ["$", "%", "@", "/", "\\"]):
-            schema_penalty += 1
-            metrics["issues"].append(f"Suspicious characters in column '{col}'")
-
-    metrics["schema_score"] = max(0, 100 - schema_penalty * 10)
-
-    # ======================================================================
-    # 6️⃣ OUTLIER SCORE (Across all numeric columns)
-    # ======================================================================
-    numeric_cols = [c for c in data.columns if data[c].dtype.kind in "if"]
-    outlier_penalty = 0
-
-    for col in numeric_cols:
-        col_series = data[col].dropna()
-        if col_series.empty:
-            continue
-
-        q1, q3 = col_series.quantile([0.25, 0.75])
-        iqr = q3 - q1
-        upper = q3 + 3 * iqr
-        lower = q1 - 3 * iqr
-
-        outliers = ((col_series > upper) | (col_series < lower)).sum()
-
-        if outliers > 0:
-            outlier_penalty += 1
-            metrics["issues"].append(f"Column '{col}' contains {outliers} outliers")
-
-    metrics["outlier_score"] = max(0, 100 - outlier_penalty * 5)
-
-    # ======================================================================
-    # 7️⃣ OVERALL SCORE (Weighted)
-    # ======================================================================
-    overall = (
-        metrics["completeness_score"] * 0.30
-        + metrics["consistency_score"] * 0.20
-        + metrics["validity_score"] * 0.20
-        + metrics["uniqueness_score"] * 0.10
-        + metrics["schema_score"] * 0.10
-        + metrics["outlier_score"] * 0.10
+                consistency_issues += 1
+                metrics['issues'].append(f"Inconsistent numeric data in {col}")
+    
+    consistency_score = max(0, 100 - (consistency_issues * 10))
+    metrics['consistency_score'] = consistency_score
+    
+    # Validity: check for reasonable value ranges
+    validity_issues = 0
+    
+    if 'TOTAL' in data.columns:
+        # Check for negative values
+        negative_totals = (data['TOTAL'] < 0).sum()
+        if negative_totals > 0:
+            validity_issues += 1
+            metrics['issues'].append(f"Found {negative_totals} negative TOTAL values")
+        
+        # Check for extremely large values (potential data entry errors)
+        max_total = data['TOTAL'].max()
+        if max_total > 1000000:  # 1 million threshold
+            validity_issues += 1
+            metrics['issues'].append(f"Extremely large TOTAL value found: {max_total}")
+    
+    validity_score = max(0, 100 - (validity_issues * 15))
+    metrics['validity_score'] = validity_score
+    
+    # Overall score (weighted average)
+    overall_score = (
+        completeness * 0.4 +
+        consistency_score * 0.3 +
+        validity_score * 0.3
     )
-    metrics["overall_score"] = round(overall, 2)
-
+    metrics['overall_score'] = round(overall_score, 2)
+    
     return metrics
 
 def generate_data_summary(data: pd.DataFrame) -> Dict:
-    """
-    Generate a comprehensive, production-grade summary of the dataset.
+    """Generate a comprehensive summary of the dataset.
     
     Args:
-        data (pd.DataFrame): Input dataset
+        data: DataFrame to summarize
         
     Returns:
-        Dict: Complete dataset summary with structure, quality, content & metadata
+        Dict: Dataset summary
     """
-    if data is None or not isinstance(data, pd.DataFrame):
-        return {
-            "error": "Invalid input — expected a pandas DataFrame",
-            "basic_info": {},
-            "columns": {},
-            "data_quality": {},
-            "content_summary": {}
-        }
-
-    # ----------------------------------------------------------------------
-    # SAFE COPY
-    # ----------------------------------------------------------------------
-    data = data.copy()
-
-    # Handle datetime conversion safely
-    for col in data.columns:
-        if data[col].dtype == 'object':
-            try:
-                data[col] = pd.to_datetime(data[col], errors='ignore')
-            except:
-                pass
-
     summary = {
-        "basic_info": {},
-        "columns": {},
-        "data_quality": {},
-        "content_summary": {},
-        "advanced_stats": {}
+        'basic_info': {},
+        'columns': {},
+        'data_quality': {},
+        'content_summary': {}
     }
-
-    # ----------------------------------------------------------------------
-    # BASIC INFO
-    # ----------------------------------------------------------------------
-    try:
-        memory_mb = round(data.memory_usage(deep=True).sum() / (1024**2), 2)
-    except:
-        memory_mb = "N/A"
-
-    summary["basic_info"] = {
-        "rows": len(data),
-        "columns": len(data.columns),
-        "memory_usage_mb": memory_mb,
-        "data_source": detect_data_source(data)
+    
+    # Basic information
+    summary['basic_info'] = {
+        'rows': len(data),
+        'columns': len(data.columns),
+        'memory_usage_mb': round(data.memory_usage(deep=True).sum() / (1024 * 1024), 2),
+        'data_source': detect_data_source(data)
     }
-
-    # ----------------------------------------------------------------------
-    # COLUMN TYPES
-    # ----------------------------------------------------------------------
-    summary["columns"] = {
-        "all_columns": data.columns.tolist(),
-        "numeric_columns": data.select_dtypes(include=[np.number]).columns.tolist(),
-        "text_columns": data.select_dtypes(include=["object"]).columns.tolist(),
-        "datetime_columns": data.select_dtypes(include=["datetime64", "datetime"]).columns.tolist(),
-        "missing_values": data.isna().sum().to_dict(),
-        "column_uniques": {col: data[col].nunique() for col in data.columns}
+    
+    # Column information
+    summary['columns'] = {
+        'numeric_columns': data.select_dtypes(include=[np.number]).columns.tolist(),
+        'text_columns': data.select_dtypes(include=['object']).columns.tolist(),
+        'datetime_columns': data.select_dtypes(include=['datetime']).columns.tolist()
     }
-
-    # ----------------------------------------------------------------------
-    # DATA QUALITY
-    # ----------------------------------------------------------------------
-    try:
-        summary["data_quality"] = calculate_data_quality_score(data)
-    except Exception as e:
-        summary["data_quality"] = {"error": f"Quality score failed: {str(e)}"}
-
-    # ----------------------------------------------------------------------
-    # CONTENT SUMMARY
-    # ----------------------------------------------------------------------
-    content = {}
-
-    # TOTAL column summary
-    if "TOTAL" in data.columns and pd.api.types.is_numeric_dtype(data["TOTAL"]):
-        content["total_registrations"] = int(data["TOTAL"].sum())
-        content["avg_registrations"] = round(data["TOTAL"].mean(), 2)
-        content["min_total"] = int(data["TOTAL"].min())
-        content["max_total"] = int(data["TOTAL"].max())
-
-    # State summary
-    if "State" in data.columns:
-        content["unique_states"] = data["State"].nunique()
-        content["top_states"] = data["State"].value_counts().head(10).to_dict()
-
-    # Year summary
-    if "Year" in data.columns:
-        try:
-            content["year_range"] = f"{int(data['Year'].min())}-{int(data['Year'].max())}"
-        except:
-            content["year_range"] = "Invalid year values"
-
-    # Vehicle Class summary
-    if "Vehicle Class" in data.columns:
-        content["unique_vehicle_classes"] = data["Vehicle Class"].nunique()
-        content["top_vehicle_classes"] = data["Vehicle Class"].value_counts().head(10).to_dict()
-
-    summary["content_summary"] = content
-
-    # ----------------------------------------------------------------------
-    # ADVANCED STATISTICS (MAXED)
-    # ----------------------------------------------------------------------
-    advanced = {}
-
-    # Outlier detection for numeric columns
-    numeric_cols = summary["columns"]["numeric_columns"]
-    outlier_info = {}
-
-    for col in numeric_cols:
-        try:
-            q1 = data[col].quantile(0.25)
-            q3 = data[col].quantile(0.75)
-            iqr = q3 - q1
-            lower = q1 - 1.5 * iqr
-            upper = q3 + 1.5 * iqr
-            outliers = data[(data[col] < lower) | (data[col] > upper)].shape[0]
-            outlier_info[col] = outliers
-        except:
-            outlier_info[col] = "N/A"
-
-    advanced["numeric_outliers"] = outlier_info
-
-    # Correlation matrix (safe)
-    try:
-        corr = data[numeric_cols].corr().round(3).to_dict()
-    except:
-        corr = {}
-
-    advanced["correlation_matrix"] = corr
-
-    # Missing data percentage
-    advanced["missing_percentage"] = (
-        (data.isna().sum() / len(data) * 100).round(2).to_dict()
-        if len(data) > 0 else {}
-    )
-
-    summary["advanced_stats"] = advanced
-
+    
+    # Data quality
+    summary['data_quality'] = calculate_data_quality_score(data)
+    
+    # Content summary
+    if 'TOTAL' in data.columns:
+        summary['content_summary']['total_registrations'] = int(data['TOTAL'].sum())
+        summary['content_summary']['avg_registrations'] = round(data['TOTAL'].mean(), 2)
+    
+    if 'State' in data.columns:
+        summary['content_summary']['unique_states'] = data['State'].nunique()
+        summary['content_summary']['top_states'] = data['State'].value_counts().head(5).to_dict()
+    
+    if 'Year' in data.columns:
+        summary['content_summary']['year_range'] = f"{data['Year'].min()}-{data['Year'].max()}"
+    
+    if 'Vehicle Class' in data.columns:
+        summary['content_summary']['unique_vehicle_classes'] = data['Vehicle Class'].nunique()
+        summary['content_summary']['top_vehicle_classes'] = data['Vehicle Class'].value_counts().head(5).to_dict()
+    
     return summary
