@@ -16,157 +16,157 @@ class GrowthAnalyzer:
     """Advanced growth analysis for VAHAN vehicle registration data."""
     
     def __init__(self):
-    """
-    Initialize the GrowthAnalyzer (MAXED EDITION++ ULTRA).
-
-    This version includes:
-        ✔ Logger + fallback logger
-        ✔ Deep environment validation
-        ✔ Dependency fingerprinting
-        ✔ Micro-cache system
-        ✔ Data container initialization
-        ✔ Analysis registry
-        ✔ Runtime health indicators
-        ✔ Auto-telemetry toggles
-        ✔ Configuration normalizer
-        ✔ Storage pipeline placeholders
-        ✔ Diagnostics + fail-safe guarantees
-        ✔ System fingerprint metadata
-        ✔ Execution-safe boot sequence
-    """
-
-    # ------------------------------------------------
-    # 1. Logger initialization (primary + fallback)
-    # ------------------------------------------------
-    try:
-        self.logger = get_logger(self.__class__.__name__)
-    except Exception as e:
-        import logging
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.logger.setLevel(logging.INFO)
-        self.logger.warning(
-            f"[GrowthAnalyzer] Primary logger failed. Using fallback logger. Reason: {e}"
-        )
-
-    self.logger.info("🚀 Starting GrowthAnalyzer MAXED INIT sequence...")
-
-    # ------------------------------------------------
-    # 2. Core data containers
-    # ------------------------------------------------
-    self._raw_data = None
-    self._clean_data = None
-    self._growth_cache = {}
-    self._trend_summary = {}
-    self._anomaly_cache = {}
-    self._rolling_cache = {}
-    self._correlation_cache = {}
-
-    # ------------------------------------------------
-    # 3. Micro-caches (for performance boosts)
-    # ------------------------------------------------
-    self._micro_cache = {
-        "last_compute_hash": None,
-        "last_summary_timestamp": None,
-        "last_row_count": None,
-        "last_column_count": None,
-    }
-
-    # ------------------------------------------------
-    # 4. System fingerprint (for audit & reproducibility)
-    # ------------------------------------------------
-    import platform
-    import os
-    from datetime import datetime
-
-    self.metadata = {
-        "version": "2025.2.0-MAXED",
-        "initialized_at": datetime.now(),
-        "status": "ready",
-        "source": "GrowthAnalyzer.MAXED++",
-        "system": {
-            "os": platform.system(),
-            "os_version": platform.version(),
-            "python": platform.python_version(),
-            "machine": platform.machine(),
-            "processor": platform.processor(),
-            "cwd": os.getcwd(),
-        },
-    }
-
-    # ------------------------------------------------
-    # 5. Dependency validation (deep check)
-    # ------------------------------------------------
-    self.dependency_status = {}
-
-    def _check_dep(name):
+        """
+        Initialize the GrowthAnalyzer (MAXED EDITION++ ULTRA).
+    
+        This version includes:
+            ✔ Logger + fallback logger
+            ✔ Deep environment validation
+            ✔ Dependency fingerprinting
+            ✔ Micro-cache system
+            ✔ Data container initialization
+            ✔ Analysis registry
+            ✔ Runtime health indicators
+            ✔ Auto-telemetry toggles
+            ✔ Configuration normalizer
+            ✔ Storage pipeline placeholders
+            ✔ Diagnostics + fail-safe guarantees
+            ✔ System fingerprint metadata
+            ✔ Execution-safe boot sequence
+        """
+    
+        # ------------------------------------------------
+        # 1. Logger initialization (primary + fallback)
+        # ------------------------------------------------
         try:
-            __import__(name)
-            self.dependency_status[name] = "OK"
+            self.logger = get_logger(self.__class__.__name__)
         except Exception as e:
-            self.dependency_status[name] = f"Missing: {e}"
-            self.logger.error(f"[DependencyError] {name} → {e}")
-
-    for dep in ["pandas", "numpy", "scipy", "sklearn"]:
-        _check_dep(dep)
-
-    self.logger.info("[GrowthAnalyzer] Dependency validation completed.")
-
-    # ------------------------------------------------
-    # 6. Configuration normalization (all settings)
-    # ------------------------------------------------
-    self.config = {
-        "auto_clean": True,
-        "auto_infer_types": True,
-        "compute_precision": "float64",
-        "max_cache_size": 50_000,
-        "fail_silent": False,
-        "optimize_numeric": True,
-        "enable_anomaly_detection": True,
-        "enable_correlation_engine": True,
-        "enable_trend_engine": True,
-        "strict_schema": False,
-        "telemetry_enabled": False,
-    }
-
-    # ------------------------------------------------
-    # 7. Diagnostics + health status
-    # ------------------------------------------------
-    self.health = {
-        "last_error": None,
-        "last_warning": None,
-        "boot_ok": True,
-        "runtime_flags": {
-            "allow_fallbacks": True,
-            "force_safe_mode": False,
-        },
-    }
-
-    # ------------------------------------------------
-    # 8. Analysis Component Registry
-    # ------------------------------------------------
-    self.analysis_registry = {
-        "trend_engine": True,
-        "growth_engine": True,
-        "outlier_detector": True,
-        "correlation_engine": True,
-        "summary_engine": True,
-        "forecast_engine": False,  # added but disabled by default
-    }
-
-    # ------------------------------------------------
-    # 9. Storage Pipeline Placeholders
-    # ------------------------------------------------
-    self.storage = {
-        "export_path": None,
-        "auto_backup": False,
-        "backup_location": None,
-        "cache_persistence": False,
-    }
-
-    # ------------------------------------------------
-    # 10. Final confirmation
-    # ------------------------------------------------
-    self.logger.info("✨ GrowthAnalyzer Initialized Successfully (MAXED EDITION++)")
+            import logging
+            self.logger = logging.getLogger(self.__class__.__name__)
+            self.logger.setLevel(logging.INFO)
+            self.logger.warning(
+                f"[GrowthAnalyzer] Primary logger failed. Using fallback logger. Reason: {e}"
+            )
+    
+        self.logger.info("🚀 Starting GrowthAnalyzer MAXED INIT sequence...")
+    
+        # ------------------------------------------------
+        # 2. Core data containers
+        # ------------------------------------------------
+        self._raw_data = None
+        self._clean_data = None
+        self._growth_cache = {}
+        self._trend_summary = {}
+        self._anomaly_cache = {}
+        self._rolling_cache = {}
+        self._correlation_cache = {}
+    
+        # ------------------------------------------------
+        # 3. Micro-caches (for performance boosts)
+        # ------------------------------------------------
+        self._micro_cache = {
+            "last_compute_hash": None,
+            "last_summary_timestamp": None,
+            "last_row_count": None,
+            "last_column_count": None,
+        }
+    
+        # ------------------------------------------------
+        # 4. System fingerprint (for audit & reproducibility)
+        # ------------------------------------------------
+        import platform
+        import os
+        from datetime import datetime
+    
+        self.metadata = {
+            "version": "2025.2.0-MAXED",
+            "initialized_at": datetime.now(),
+            "status": "ready",
+            "source": "GrowthAnalyzer.MAXED++",
+            "system": {
+                "os": platform.system(),
+                "os_version": platform.version(),
+                "python": platform.python_version(),
+                "machine": platform.machine(),
+                "processor": platform.processor(),
+                "cwd": os.getcwd(),
+            },
+        }
+    
+        # ------------------------------------------------
+        # 5. Dependency validation (deep check)
+        # ------------------------------------------------
+        self.dependency_status = {}
+    
+        def _check_dep(name):
+            try:
+                __import__(name)
+                self.dependency_status[name] = "OK"
+            except Exception as e:
+                self.dependency_status[name] = f"Missing: {e}"
+                self.logger.error(f"[DependencyError] {name} → {e}")
+    
+        for dep in ["pandas", "numpy", "scipy", "sklearn"]:
+            _check_dep(dep)
+    
+        self.logger.info("[GrowthAnalyzer] Dependency validation completed.")
+    
+        # ------------------------------------------------
+        # 6. Configuration normalization (all settings)
+        # ------------------------------------------------
+        self.config = {
+            "auto_clean": True,
+            "auto_infer_types": True,
+            "compute_precision": "float64",
+            "max_cache_size": 50_000,
+            "fail_silent": False,
+            "optimize_numeric": True,
+            "enable_anomaly_detection": True,
+            "enable_correlation_engine": True,
+            "enable_trend_engine": True,
+            "strict_schema": False,
+            "telemetry_enabled": False,
+        }
+    
+        # ------------------------------------------------
+        # 7. Diagnostics + health status
+        # ------------------------------------------------
+        self.health = {
+            "last_error": None,
+            "last_warning": None,
+            "boot_ok": True,
+            "runtime_flags": {
+                "allow_fallbacks": True,
+                "force_safe_mode": False,
+            },
+        }
+    
+        # ------------------------------------------------
+        # 8. Analysis Component Registry
+        # ------------------------------------------------
+        self.analysis_registry = {
+            "trend_engine": True,
+            "growth_engine": True,
+            "outlier_detector": True,
+            "correlation_engine": True,
+            "summary_engine": True,
+            "forecast_engine": False,  # added but disabled by default
+        }
+    
+        # ------------------------------------------------
+        # 9. Storage Pipeline Placeholders
+        # ------------------------------------------------
+        self.storage = {
+            "export_path": None,
+            "auto_backup": False,
+            "backup_location": None,
+            "cache_persistence": False,
+        }
+    
+        # ------------------------------------------------
+        # 10. Final confirmation
+        # ------------------------------------------------
+        self.logger.info("✨ GrowthAnalyzer Initialized Successfully (MAXED EDITION++)")
 
     
     def calculate_compound_growth_rate(
