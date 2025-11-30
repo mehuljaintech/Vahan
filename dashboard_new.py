@@ -129,11 +129,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ──────────────────────────────
-# Page Header
-# ──────────────────────────────
-st.markdown('<div class="main-header">VAHAN Vehicle Registration Analytics</div>', unsafe_allow_html=True)
-
 # Optional: footer timestamp for data recency
 st.markdown(f'<div class="footer-timestamp">Page generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</div>', unsafe_allow_html=True)
 
