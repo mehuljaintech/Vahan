@@ -1,10 +1,17 @@
+# ----------------------------
 # Core dependencies
+# ----------------------------
 streamlit
 pandas
 numpy
 plotly
+altair
+dash
+bokeh
 
+# ----------------------------
 # Web scraping
+# ----------------------------
 selenium
 beautifulsoup4
 requests
@@ -12,36 +19,132 @@ lxml
 webdriver-manager
 chromedriver-autoinstaller
 undetected-chromedriver
+scrapy
+fake-useragent
+html5lib
+pyppeteer
 
+# ----------------------------
 # Data processing and export
+# ----------------------------
 openpyxl
 xlsxwriter
+xlrd
+csvkit
+fastparquet
+pyarrow
+feather-format
 
+# ----------------------------
 # Utilities
+# ----------------------------
 python-dateutil
 pytz
 six
 pathlib2
 typing-extensions
+tqdm
+joblib
+rich
+loguru
+python-magic
 
+# ----------------------------
 # Data analysis & ML
+# ----------------------------
 scikit-learn
 matplotlib
 seaborn
+statsmodels
+scipy
+xgboost
+lightgbm
+catboost
+mlxtend
+yellowbrick
 
+# ----------------------------
+# Deep learning / AI / GenAI
+# ----------------------------
+torch
+tensorflow
+keras
+transformers
+sentence-transformers
+openai
+diffusers
+accelerate
+
+# ----------------------------
 # Development and testing
+# ----------------------------
 pytest
 pytest-cov
 black
 flake8
+isort
+mypy
 
+# ----------------------------
 # Documentation
+# ----------------------------
 sphinx
 sphinx-rtd-theme
+mkdocs
+mkdocs-material
 
+# ----------------------------
 # Jupyter / notebooks
+# ----------------------------
 jupyter
 notebook
+jupyterlab
+ipython
+ipywidgets
+nbconvert
+papermill
 
-# Optional: headless browser support for Linux (Streamlit Cloud)
+# ----------------------------
+# Cloud / container / headless support
+# ----------------------------
 pyvirtualdisplay
+docker
+docker-compose
+boto3
+gcsfs
+s3fs
+google-cloud-storage
+azure-storage-blob
+paramiko
+
+# ----------------------------
+# Visualization extras
+# ----------------------------
+folium
+geopandas
+plotly-express
+networkx
+graphviz
+pydeck
+hvplot
+datashader
+
+# ----------------------------
+# Optional extras for NLP / text / PDF
+# ----------------------------
+nltk
+spacy
+gensim
+pdfplumber
+python-docx
+openpyxl
+
+# ----------------------------
+# Optional data connectors
+# ----------------------------
+sqlalchemy
+psycopg2-binary
+mysql-connector-python
+pymongo
+pyodbc
+redis
