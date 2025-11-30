@@ -343,7 +343,7 @@ class ModularVahanDashboard:
             if st.button("🔄 Refresh Cache"):
                 st.session_state.cached_dropdown_data = None
                 st.session_state.dropdown_cache_timestamp = None
-                st.experimental_rerun()
+                st.rerun()
     
         # Get dropdown data (cached or fresh)
         dropdown_data = self.get_cached_dropdown_data()
@@ -471,7 +471,7 @@ class ModularVahanDashboard:
                     st.session_state.scraped_data = None
                     st.session_state.scraped_growth_metrics = {}
                     st.session_state.data_source_type = None
-                    st.experimental_rerun()
+                    st.rerun()
             elif source_type == "sample":
                 st.sidebar.info("🧪 Sample Data")
             elif source_type == "upload":
